@@ -1,0 +1,193 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model categorias {
+  id_categoria Int         @id @default(autoincrement())
+  nombre       String      @db.VarChar(100)
+  descripcion  String?
+  productos    productos[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cierres_caja {
+  id_cierre               Int       @id @default(autoincrement())
+  id_sede                 Int
+  id_cajero               Int
+  fecha_apertura          DateTime? @default(now()) @db.Timestamp(6)
+  fecha_cierre            DateTime? @db.Timestamp(6)
+  monto_inicial_caja      Decimal   @db.Decimal(10, 2)
+  ventas_efectivo_sistema Decimal?  @default(0.00) @db.Decimal(10, 2)
+  ventas_tarjeta_sistema  Decimal?  @default(0.00) @db.Decimal(10, 2)
+  total_esperado_sistema  Decimal   @db.Decimal(10, 2)
+  efectivo_fisico_contado Decimal   @db.Decimal(10, 2)
+  baucher_tarjeta_contado Decimal   @db.Decimal(10, 2)
+  diferencia_cuadre       Decimal   @db.Decimal(10, 2)
+  estado_cierre           String    @db.VarChar(20)
+  observaciones_auditoria String?
+  usuarios                usuarios  @relation(fields: [id_cajero], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction)
+  sedes                   sedes     @relation(fields: [id_sede], references: [id_sede], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cuentas {
+  id_cuenta       Int               @id @default(autoincrement())
+  id_sede         Int
+  id_mesa         Int?
+  id_mesero       Int
+  estado          String?           @default("Abierta") @db.VarChar(20)
+  subtotal        Decimal?          @default(0.00) @db.Decimal(10, 2)
+  impuestos       Decimal?          @default(0.00) @db.Decimal(10, 2)
+  total           Decimal?          @default(0.00) @db.Decimal(10, 2)
+  fecha_apertura  DateTime?         @default(now()) @db.Timestamp(6)
+  fecha_cierre    DateTime?         @db.Timestamp(6)
+  mesas           mesas?            @relation(fields: [id_mesa], references: [id_mesa], onDelete: NoAction, onUpdate: NoAction)
+  usuarios        usuarios          @relation(fields: [id_mesero], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction)
+  sedes           sedes             @relation(fields: [id_sede], references: [id_sede], onDelete: NoAction, onUpdate: NoAction)
+  detalle_cuentas detalle_cuentas[]
+  pagos_facturas  pagos_facturas[]
+}
+
+model detalle_cuentas {
+  id_detalle      Int       @id @default(autoincrement())
+  id_cuenta       Int
+  id_producto     Int
+  cantidad        Int
+  precio_unitario Decimal   @db.Decimal(10, 2)
+  subtotal        Decimal   @db.Decimal(10, 2)
+  fecha_agregado  DateTime? @default(now()) @db.Timestamp(6)
+  cuentas         cuentas   @relation(fields: [id_cuenta], references: [id_cuenta], onDelete: NoAction, onUpdate: NoAction)
+  productos       productos @relation(fields: [id_producto], references: [id_producto], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model historial_ingresos_stock {
+  id_ingreso        Int              @id @default(autoincrement())
+  id_inventario     Int
+  id_usuario        Int
+  cantidad_agregada Int
+  fecha_ingreso     DateTime?        @default(now()) @db.Timestamp(6)
+  inventario_sedes  inventario_sedes @relation(fields: [id_inventario], references: [id_inventario], onDelete: NoAction, onUpdate: NoAction)
+  usuarios          usuarios         @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model inventario_sedes {
+  id_inventario            Int                        @id @default(autoincrement())
+  id_sede                  Int
+  id_producto              Int
+  stock_actual             Int?                       @default(0)
+  stock_minimo             Int?                       @default(5)
+  ultima_actualizacion     DateTime?                  @default(now()) @db.Timestamp(6)
+  historial_ingresos_stock historial_ingresos_stock[]
+  productos                productos                  @relation(fields: [id_producto], references: [id_producto], onDelete: NoAction, onUpdate: NoAction)
+  sedes                    sedes                      @relation(fields: [id_sede], references: [id_sede], onDelete: NoAction, onUpdate: NoAction)
+  movimientos_inventario   movimientos_inventario[]
+
+  @@unique([id_sede, id_producto])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model mesas {
+  id_mesa              Int       @id @default(autoincrement())
+  id_sede              Int
+  nombre_identificador String    @db.VarChar(50)
+  capacidad            Int?      @default(2)
+  estado               String?   @default("Disponible") @db.VarChar(20)
+  cuentas              cuentas[]
+  sedes                sedes     @relation(fields: [id_sede], references: [id_sede], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model movimientos_inventario {
+  id_movimiento      Int              @id @default(autoincrement())
+  id_inventario_sede Int
+  id_tipo_mov        Int
+  id_usuario         Int
+  cantidad           Int
+  observaciones      String?
+  fecha_movimiento   DateTime?        @default(now()) @db.Timestamp(6)
+  inventario_sedes   inventario_sedes @relation(fields: [id_inventario_sede], references: [id_inventario], onDelete: NoAction, onUpdate: NoAction)
+  tipos_movimiento   tipos_movimiento @relation(fields: [id_tipo_mov], references: [id_tipo_mov], onDelete: NoAction, onUpdate: NoAction)
+  usuarios           usuarios         @relation(fields: [id_usuario], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model pagos_facturas {
+  id_pago         Int       @id @default(autoincrement())
+  id_cuenta       Int
+  id_cajero       Int
+  numero_factura  String    @unique @db.VarChar(50)
+  metodo_pago     String    @db.VarChar(50)
+  monto_recibido  Decimal   @db.Decimal(10, 2)
+  cambio_devuelto Decimal?  @default(0.00) @db.Decimal(10, 2)
+  total_pagado    Decimal   @db.Decimal(10, 2)
+  fecha_pago      DateTime? @default(now()) @db.Timestamp(6)
+  usuarios        usuarios  @relation(fields: [id_cajero], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction)
+  cuentas         cuentas   @relation(fields: [id_cuenta], references: [id_cuenta], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model productos {
+  id_producto      Int                @id @default(autoincrement())
+  id_categoria     Int
+  codigo_sku       String?            @unique @db.VarChar(50)
+  nombre           String             @db.VarChar(150)
+  costo_compra     Decimal            @db.Decimal(10, 2)
+  precio_venta     Decimal            @db.Decimal(10, 2)
+  estado           String?            @default("Activo") @db.VarChar(20)
+  detalle_cuentas  detalle_cuentas[]
+  inventario_sedes inventario_sedes[]
+  categorias       categorias         @relation(fields: [id_categoria], references: [id_categoria], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model sedes {
+  id_sede          Int                @id @default(autoincrement())
+  nombre           String             @db.VarChar(100)
+  direccion        String?            @db.VarChar(200)
+  telefono         String?            @db.VarChar(20)
+  estado           String?            @default("Activa") @db.VarChar(20)
+  fecha_creacion   DateTime?          @default(now()) @db.Timestamp(6)
+  cierres_caja     cierres_caja[]
+  cuentas          cuentas[]
+  inventario_sedes inventario_sedes[]
+  mesas            mesas[]
+  usuarios         usuarios[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model spatial_ref_sys {
+  srid      Int     @id
+  auth_name String? @db.VarChar(256)
+  auth_srid Int?
+  srtext    String? @db.VarChar(2048)
+  proj4text String? @db.VarChar(2048)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model tipos_movimiento {
+  id_tipo_mov            Int                      @id @default(autoincrement())
+  nombre                 String                   @db.VarChar(50)
+  naturaleza             String                   @db.VarChar(20)
+  movimientos_inventario movimientos_inventario[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model usuarios {
+  id_usuario               Int                        @id @default(autoincrement())
+  id_sede                  Int?
+  nombre_completo          String                     @db.VarChar(150)
+  email                    String                     @unique @db.VarChar(100)
+  password_hash            String                     @db.VarChar(255)
+  rol                      String                     @db.VarChar(20)
+  estado                   String?                    @default("Activo") @db.VarChar(20)
+  cierres_caja             cierres_caja[]
+  cuentas                  cuentas[]
+  historial_ingresos_stock historial_ingresos_stock[]
+  movimientos_inventario   movimientos_inventario[]
+  pagos_facturas           pagos_facturas[]
+  sedes                    sedes?                     @relation(fields: [id_sede], references: [id_sede], onDelete: NoAction, onUpdate: NoAction)
+}

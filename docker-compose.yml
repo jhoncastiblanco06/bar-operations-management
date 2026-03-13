@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: frontend_bar
+    restart: unless-stopped
+    command: npm run dev    #  Next.js
+    ports:
+      - "7085:3000"
+    volumes:
+      - ./volumes/frontend/:/var/www/html
+    depends_on:
+      - database
+    networks:
+      - network_bar
+
+  backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: backend_bar
+    restart: unless-stopped
+    command: npm run start:dev  #  Arranca NestJS
+    ports:
+      - "7086:3000"
+    volumes:
+      - ./volumes/backend/:/var/www/html
+    depends_on:
+      - database
+    networks:
+      - network_bar
+
+  database:
+    image: postgis/postgis:16-3.5
+    container_name: database_bar
+    restart: unless-stopped
+    ports:
+      - "7087:5432"
+    volumes:
+      - ./volumes/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=Bar_DB
+      - POSTGRES_USER=manager
+      - POSTGRES_PASSWORD=z0LBnvLxjbzRKzWSApCr
+    networks:
+      - network_bar
+
+networks:
+  network_bar:
+    driver: bridge
