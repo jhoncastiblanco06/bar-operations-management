@@ -141,3 +141,15 @@ vite.config.ts.timestamp-*
 #Docker
 docker-compose.yml
 Dockerfile
+
+# Ignorar dependencias pesadas de Node
+volumes/frontend/node_modules/
+volumes/backend/node_modules/
+
+# Ignorar la base de datos física
+volumes/db/
+
+# Ignorar las contraseñas y variables de entorno
+.env
+volumes/backend/.env
+volumes/frontend/.env
