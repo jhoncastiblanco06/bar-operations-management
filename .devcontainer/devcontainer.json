@@ -1,0 +1,23 @@
+{
+  "name": "BarSystem Dev Environment",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "backend",
+  "workspaceFolder": "/var/www/html",
+
+  "shutdownAction": "stopCompose",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "Prisma.prisma"
+      ]
+    }
+  },
+
+  "forwardPorts": [7085, 7086, 7087],
+
+  "postCreateCommand": "npm install"
+}
