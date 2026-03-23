@@ -137,6 +137,8 @@ model productos {
   costo_compra     Decimal            @db.Decimal(10, 2)
   precio_venta     Decimal            @db.Decimal(10, 2)
   estado           String?            @default("Activo") @db.VarChar(20)
+  imagen_url       String?            @db.VarChar(255) 
+  
   detalle_cuentas  detalle_cuentas[]
   inventario_sedes inventario_sedes[]
   categorias       categorias         @relation(fields: [id_categoria], references: [id_categoria], onDelete: NoAction, onUpdate: NoAction)

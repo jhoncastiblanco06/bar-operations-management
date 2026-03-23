@@ -7,7 +7,6 @@ export interface Sede {
   telefono?: string | null;
   estado?: string;
 }
-
 export interface Mesa {
   id_mesa: number;
   nombre_identificador: string;
@@ -23,4 +22,15 @@ export interface Usuario {
   rol: string;
   estado: string;
   sedes?: Sede | null;
+}
+export interface Producto {
+  id_producto: number;
+  nombre: string;
+  codigo_sku?: string | null;
+  costo_compra: string | number;
+  precio_venta: string | number;
+  stock: number;
+  estado: string;
+  imagen_url?: string | null;
+  id_categoria: number;
 }
