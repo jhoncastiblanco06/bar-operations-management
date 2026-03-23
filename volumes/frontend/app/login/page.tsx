@@ -3,56 +3,59 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { API_URL } from "../../utilidades/api";
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export default function PaginaLogin() {
+  const enrutador = useRouter();
+  const [correo, setCorreo] = useState("");
+  const [contrasena, setContrasena] = useState("");
 
-  // NUEVO: Estados para manejar errores y la carga visual del botón
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [estaCargando, setEstaCargando] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true); // Bloqueamos el botón
-    setError(null); // Limpiamos errores anteriores
+  const manejarInicioSesion = async (evento: React.FormEvent) => {
+    evento.preventDefault();
+    setEstaCargando(true);
+    setError(null);
 
     try {
-      // Hacemos la petición EXACTAMENTE igual que en Postman
-      const response = await fetch("http://localhost:7086/auth/login", {
+      // Reemplazamos el 'localhost:7086' por nuestra variable API_URL
+      const respuesta = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        // OJO: Tu backend espera "password_hash", así que lo mapeamos aquí
         body: JSON.stringify({
-          email: email,
-          password_hash: password,
+          email: correo,
+          password_hash: contrasena,
         }),
       });
 
-      const data = await response.json();
+      const datos = await respuesta.json();
 
-      if (response.ok) {
-        // Si el backend responde con un 200/201 (Éxito)
-        console.log("Usuario logueado:", data.usuario);
+      if (respuesta.ok) {
+        console.log("Usuario logueado:", datos.usuario);
 
-        // ✨ LA LÍNEA MÁGICA: Guardamos al usuario en la memoria del navegador
-        // Usamos JSON.stringify porque localStorage solo acepta textos, no objetos.
-        localStorage.setItem("usuario_bar", JSON.stringify(data.usuario));
+        // Guardamos al usuario en la memoria del navegador
+        localStorage.setItem("usuario_bar", JSON.stringify(datos.usuario));
 
-        // ¡Lo mandamos al sistema!
-        router.push("/admin");
+        // Redirección inteligente basada en el rol del usuario
+        if (datos.usuario.rol === "Administrador") {
+          enrutador.push("/admin");
+        } else if (datos.usuario.rol === "Cajero") {
+          enrutador.push("/cajero");
+        } else if (datos.usuario.rol === "Mesero") {
+          enrutador.push("/mesero");
+        } else {
+          enrutador.push("/"); // Seguridad por si falla el rol
+        }
       } else {
-        // Si el backend responde con un 401 (Credenciales inválidas) o 500
-        setError(data.message || "Error al iniciar sesión");
+        setError(datos.message || "Error al iniciar sesión");
       }
     } catch (err) {
-      // Si el backend está apagado o hay un problema de red
       setError("No se pudo conectar con el servidor. Revisa tu conexión.");
     } finally {
-      setIsLoading(false); // Desbloqueamos el botón
+      setEstaCargando(false);
     }
   };
 
@@ -81,8 +84,7 @@ export default function LoginPage() {
         </div>
 
         {/* Formulario */}
-        <form onSubmit={handleLogin} className="space-y-5">
-          {/* NUEVO: Mensaje de error visual */}
+        <form onSubmit={manejarInicioSesion} className="space-y-5">
           {error && (
             <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm p-3 rounded-lg text-center animate-pulse">
               {error}
@@ -95,12 +97,12 @@ export default function LoginPage() {
             </label>
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={correo}
+              onChange={(evento) => setCorreo(evento.target.value)}
               className="w-full px-4 py-3.5 rounded-xl bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all duration-200 text-sm"
               placeholder="nombre@bar.com"
               required
-              disabled={isLoading}
+              disabled={estaCargando}
             />
           </div>
 
@@ -110,26 +112,26 @@ export default function LoginPage() {
             </label>
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={contrasena}
+              onChange={(evento) => setContrasena(evento.target.value)}
               className="w-full px-4 py-3.5 rounded-xl bg-gray-800/50 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all duration-200 text-sm"
               placeholder="••••••••"
               required
-              disabled={isLoading}
+              disabled={estaCargando}
             />
           </div>
 
           <div className="pt-2">
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={estaCargando}
               className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transition-all duration-200 text-base ${
-                isLoading
+                estaCargando
                   ? "bg-blue-800 cursor-not-allowed opacity-70"
                   : "bg-blue-600 hover:bg-blue-500 active:scale-[0.98] shadow-blue-600/20"
               }`}
             >
-              {isLoading ? "Verificando..." : "Entrar al Sistema"}
+              {estaCargando ? "Verificando..." : "Entrar al Sistema"}
             </button>
           </div>
         </form>
