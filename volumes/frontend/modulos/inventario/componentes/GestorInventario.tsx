@@ -4,40 +4,94 @@ import { useState, useEffect } from "react";
 import { Producto } from "../../../tipos";
 import { API_URL } from "../../../utilidades/api";
 
+// Molde rápido para las categorías
+interface Categoria {
+  id_categoria: number;
+  nombre: string;
+}
+
 export default function GestorInventario() {
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
 
-  // Estados del formulario
+  // Estados del formulario de Producto
   const [nombre, setNombre] = useState("");
   const [costo, setCosto] = useState("");
   const [precio, setPrecio] = useState("");
-  const [idCategoria, setIdCategoria] = useState("1"); // Por defecto 1 para evitar errores de llave foránea
+  const [idCategoria, setIdCategoria] = useState("");
   const [imagen, setImagen] = useState<File | null>(null);
+
+  // Estados para crear Categoría al vuelo
+  const [creandoCategoria, setCreandoCategoria] = useState(false);
+  const [nombreNuevaCategoria, setNombreNuevaCategoria] = useState("");
 
   const [estaCargando, setEstaCargando] = useState(false);
 
-  // Cargar el catálogo
-  const cargarProductos = async () => {
+  // Cargar productos y categorías al mismo tiempo
+  const cargarDatos = async () => {
     try {
-      const respuesta = await fetch(`${API_URL}/productos`);
-      const datos = await respuesta.json();
-      setProductos(datos);
+      const [resProductos, resCategorias] = await Promise.all([
+        fetch(`${API_URL}/productos`),
+        fetch(`${API_URL}/categorias`),
+      ]);
+
+      const datosProductos = await resProductos.json();
+      const datosCategorias = await resCategorias.json();
+
+      // 🛡️ ESCUDO: Verificamos que realmente sean Arrays (listas) antes de guardarlos.
+      // Si el backend mandó un error, guardamos un array vacío [] para que React no explote.
+      setProductos(Array.isArray(datosProductos) ? datosProductos : []);
+      setCategorias(Array.isArray(datosCategorias) ? datosCategorias : []);
     } catch (error) {
-      console.error("Error al cargar productos:", error);
+      console.error("Error al cargar datos:", error);
     }
   };
 
   useEffect(() => {
-    cargarProductos();
+    cargarDatos();
   }, []);
+
+  // Función para guardar Categoría Nueva blindada
+  const manejarCrearCategoria = async () => {
+    if (!nombreNuevaCategoria.trim()) return;
+
+    try {
+      const res = await fetch(`${API_URL}/categorias`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: nombreNuevaCategoria }),
+      });
+
+      if (res.ok) {
+        const nuevaCat = await res.json();
+        await cargarDatos(); // Recargamos la lista
+        setIdCategoria(nuevaCat.id_categoria.toString());
+        setCreandoCategoria(false);
+        setNombreNuevaCategoria("");
+      } else {
+        // 🚨 AQUÍ ESTÁ LA MAGIA: Si el backend falla, leemos el error y lo mostramos
+        const errorData = await res.json();
+        alert(
+          `Error del Backend: ${errorData.message || "No se pudo crear la categoría"}`,
+        );
+      }
+    } catch (error) {
+      console.error("Error al crear categoría", error);
+      alert("Error de conexión con el servidor");
+    }
+  };
 
   // Guardar un nuevo producto
   const manejarCrearProducto = async (evento: React.FormEvent) => {
     evento.preventDefault();
+
+    if (!idCategoria) {
+      return alert("Por favor, selecciona o crea una categoría primero.");
+    }
+
     setEstaCargando(true);
 
     try {
-      // 📸 LA MAGIA: Usamos FormData en lugar de JSON para poder enviar la foto
       const datosFormulario = new FormData();
       datosFormulario.append("nombre", nombre);
       datosFormulario.append("costo_compra", costo);
@@ -48,26 +102,24 @@ export default function GestorInventario() {
         datosFormulario.append("imagen", imagen);
       }
 
-      // OJO: Cuando usamos FormData, NO le ponemos 'Content-Type' a los headers.
-      // El navegador lo hace automáticamente y le pone el formato correcto.
       const respuesta = await fetch(`${API_URL}/productos`, {
         method: "POST",
         body: datosFormulario,
       });
 
       if (respuesta.ok) {
-        // Limpiamos el formulario
         setNombre("");
         setCosto("");
         setPrecio("");
         setImagen(null);
-        // Reseteamos el input tipo file visualmente
+        setIdCategoria("");
+
         const inputArchivo = document.getElementById(
           "input-imagen",
         ) as HTMLInputElement;
         if (inputArchivo) inputArchivo.value = "";
 
-        cargarProductos(); // Recargamos la lista
+        cargarDatos();
       } else {
         const errorData = await respuesta.json();
         alert(`Error al guardar: ${errorData.message || "Revisa los datos"}`);
@@ -89,11 +141,12 @@ export default function GestorInventario() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Formulario de Recepción (1/3 de la pantalla) */}
+        {/* Formulario de Recepción */}
         <div className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 h-fit lg:col-span-1">
           <h2 className="text-xl font-semibold mb-4 text-blue-400">
             Nuevo Producto
           </h2>
+
           <form onSubmit={manejarCrearProducto} className="space-y-4">
             <div>
               <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">
@@ -121,6 +174,63 @@ export default function GestorInventario() {
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
                 placeholder="Ej. Cerveza Corona 355ml"
               />
+            </div>
+
+            {/* ZONA DE CATEGORÍAS (UX MEJORADO) */}
+            <div className="bg-gray-950 p-3 rounded-xl border border-gray-800">
+              <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">
+                Categoría
+              </label>
+
+              {!creandoCategoria ? (
+                <div className="flex gap-2">
+                  <select
+                    required
+                    value={idCategoria}
+                    onChange={(e) => setIdCategoria(e.target.value)}
+                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
+                  >
+                    <option value="">-- Seleccionar --</option>
+                    {categorias.map((cat) => (
+                      <option key={cat.id_categoria} value={cat.id_categoria}>
+                        {cat.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setCreandoCategoria(true)}
+                    className="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 rounded-lg border border-gray-700 font-bold"
+                    title="Nueva Categoría"
+                  >
+                    +
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    autoFocus
+                    value={nombreNuevaCategoria}
+                    onChange={(e) => setNombreNuevaCategoria(e.target.value)}
+                    className="flex-1 bg-gray-800 border border-blue-500 rounded-lg px-3 py-2 text-white outline-none"
+                    placeholder="Ej. Licores Fuertes"
+                  />
+                  <button
+                    type="button"
+                    onClick={manejarCrearCategoria}
+                    className="bg-green-600 hover:bg-green-500 text-white px-3 rounded-lg font-bold"
+                  >
+                    ✓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreandoCategoria(false)}
+                    className="bg-red-900/50 hover:bg-red-900 text-red-400 px-3 rounded-lg font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -154,23 +264,6 @@ export default function GestorInventario() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">
-                ID Categoría
-              </label>
-              <input
-                required
-                type="number"
-                value={idCategoria}
-                onChange={(e) => setIdCategoria(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
-                placeholder="Ej. 1"
-              />
-              <p className="text-[10px] text-gray-500 mt-1">
-                *Asegúrate de que este ID exista en tu tabla de categorías.
-              </p>
-            </div>
-
             <button
               disabled={estaCargando}
               className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg mt-4 transition-colors shadow-lg shadow-blue-500/20"
@@ -180,7 +273,7 @@ export default function GestorInventario() {
           </form>
         </div>
 
-        {/* Catálogo Visual (2/3 de la pantalla) */}
+        {/* Catálogo Visual */}
         <div className="lg:col-span-2">
           {productos.length === 0 ? (
             <div className="bg-gray-900/50 p-10 rounded-2xl border border-gray-800 border-dashed text-center text-gray-500 flex flex-col items-center justify-center h-full min-h-[300px]">
@@ -197,12 +290,9 @@ export default function GestorInventario() {
                   key={producto.id_producto}
                   className="bg-gray-800/80 rounded-2xl border border-gray-700 overflow-hidden hover:border-gray-500 transition-all group relative"
                 >
-                  {/* Etiqueta de Stock */}
                   <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[10px] font-bold text-white z-10 border border-gray-600">
                     Stock: {producto.stock}
                   </div>
-
-                  {/* Imagen del Producto */}
                   <div className="h-40 w-full bg-gray-900 relative flex items-center justify-center overflow-hidden">
                     {producto.imagen_url ? (
                       <img
@@ -210,7 +300,6 @@ export default function GestorInventario() {
                         alt={producto.nombre}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         onError={(e) => {
-                          // Si falla al cargar la imagen, mostramos un fallback
                           (e.target as HTMLImageElement).src =
                             "https://via.placeholder.com/300x300?text=Sin+Imagen";
                         }}
@@ -219,8 +308,6 @@ export default function GestorInventario() {
                       <span className="text-4xl opacity-50">🏷️</span>
                     )}
                   </div>
-
-                  {/* Detalles del Producto */}
                   <div className="p-4">
                     <h3
                       className="font-bold text-sm text-white truncate"
@@ -229,8 +316,10 @@ export default function GestorInventario() {
                       {producto.nombre}
                     </h3>
                     <div className="flex justify-between items-end mt-2">
-                      <p className="text-xs text-gray-400">
-                        Cat: {producto.id_categoria}
+                      <p className="text-[10px] bg-gray-700 px-2 py-1 rounded text-gray-300 truncate max-w-[80px]">
+                        {categorias.find(
+                          (c) => c.id_categoria === producto.id_categoria,
+                        )?.nombre || "Sin Cat"}
                       </p>
                       <p className="font-black text-blue-400">
                         ${Number(producto.precio_venta).toLocaleString()}

@@ -1,6 +1,6 @@
 // src/app/admin/sedes/page.tsx
 
-import GestorSedes from "../../../modulos/sedes/componentes/GestorSedes";
+import GestorSedes from "../../../modulos/sedes/componentes/gestorsedes";
 
 export default function PaginaSedesAdmin() {
   return (
