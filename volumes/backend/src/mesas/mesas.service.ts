@@ -36,7 +36,17 @@ export class MesasService {
       where: { id_mesa: id },
     });
   }
-
+// Agrega esto debajo de tus otros métodos
+  async obtenerPorSede(id_sede: number) {
+    return this.prisma.mesas.findMany({
+      where: { 
+        id_sede: id_sede,
+        // Opcional: Si quieres que en la caja solo salgan las disponibles
+        // estado: 'Disponible' 
+      },
+      orderBy: { nombre_identificador: 'asc' }
+    });
+  }
   // Eliminar la última mesa según capacidad en una sede
   async eliminarUltimaPorCapacidad(id_sede: number, capacidad: number) {
     const ultimaMesa = await this.prisma.mesas.findFirst({

@@ -9,10 +9,23 @@ export default function MenuLateral() {
   const enrutador = useRouter();
   const [abierto, setAbierto] = useState(false);
 
-  const menu = [
+  // Menú dividido por categorías para mayor orden
+  const menuOperacion = [
     { nombre: "Dashboard", ruta: "/admin", icono: "📊" },
     { nombre: "Caja (POS)", ruta: "/admin/caja", icono: "🖥️" },
-    { nombre: "Inventario", ruta: "/admin/inventario", icono: "📦" },
+    { nombre: "Panel Meseros", ruta: "/meseros", icono: "📱" },
+  ];
+
+  const menuLogistica = [
+    { nombre: "Catálogo Maestro", ruta: "/admin/inventario", icono: "📦" },
+    {
+      nombre: "Recepción Stock",
+      ruta: "/admin/inventario/recepcion",
+      icono: "📥",
+    },
+  ];
+
+  const menuAdministracion = [
     { nombre: "Mesas y Aforo", ruta: "/admin/mesas", icono: "🪑" },
     { nombre: "Sedes", ruta: "/admin/sedes", icono: "🏢" },
     { nombre: "Personal", ruta: "/admin/usuarios", icono: "👥" },
@@ -24,72 +37,93 @@ export default function MenuLateral() {
     enrutador.push("/login");
   };
 
+  // Función auxiliar para renderizar los links
+  const renderizarLinks = (
+    items: { nombre: string; ruta: string; icono: string }[],
+  ) =>
+    items.map((item) => {
+      const estaActivo = rutaActual === item.ruta;
+      return (
+        <Link
+          key={item.ruta}
+          href={item.ruta}
+          onClick={() => setAbierto(false)}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-medium text-sm ${
+            estaActivo
+              ? "bg-blue-600/10 text-blue-400 border border-blue-500/20 shadow-inner"
+              : "text-gray-400 hover:bg-gray-900 hover:text-white border border-transparent"
+          }`}
+        >
+          <span className="text-lg">{item.icono}</span>
+          {item.nombre}
+        </Link>
+      );
+    });
+
   return (
     <>
-      {/* 🔘 BOTÓN MÓVIL */}
       <button
         onClick={() => setAbierto(true)}
-        className="fixed top-4 left-4 z-50 md:hidden bg-gray-900 text-white p-2 rounded-lg border border-gray-700"
+        className="fixed top-4 left-4 z-50 md:hidden bg-gray-900 text-white p-2 rounded-lg border border-gray-700 shadow-xl"
       >
         ☰
       </button>
 
-      {/* 🧱 OVERLAY (fondo oscuro en móvil) */}
       {abierto && (
         <div
           onClick={() => setAbierto(false)}
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
         />
       )}
 
-      {/* 📚 SIDEBAR */}
       <aside
-        className={`
-          fixed top-0 left-0 h-screen w-64 bg-gray-950 border-r border-gray-800 flex flex-col z-50
-          transform transition-transform duration-300
-          ${abierto ? "translate-x-0" : "-translate-x-full"}
-          md:translate-x-0
-        `}
+        className={`fixed top-0 left-0 h-screen w-64 bg-gray-950 border-r border-gray-800 flex flex-col z-50 transform transition-transform duration-300 ${abierto ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
         {/* Logo */}
-        <div className="h-20 flex items-center px-6 border-b border-gray-800">
+        <div className="h-20 flex items-center px-6 border-b border-gray-800 shrink-0">
           <h2 className="text-xl font-black text-white tracking-tighter flex items-center gap-2">
             <span className="text-blue-500 text-2xl">🍸</span> BarSystem
           </h2>
         </div>
 
-        {/* Menú */}
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">
-            Menú Principal
-          </p>
+        {/* Zonas de Navegación */}
+        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-6 scrollbar-thin scrollbar-thumb-gray-800">
+          <div>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">
+              Operación
+            </p>
+            <div className="space-y-1">{renderizarLinks(menuOperacion)}</div>
+          </div>
 
-          {menu.map((item) => {
-            const estaActivo = rutaActual === item.ruta;
+          <div>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">
+              Logística
+            </p>
+            <div className="space-y-1">{renderizarLinks(menuLogistica)}</div>
+          </div>
 
-            return (
-              <Link
-                key={item.ruta}
-                href={item.ruta}
-                onClick={() => setAbierto(false)} // 👈 cierra en móvil
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all font-medium text-sm ${
-                  estaActivo
-                    ? "bg-blue-600/10 text-blue-400 border border-blue-500/20 shadow-inner"
-                    : "text-gray-400 hover:bg-gray-900 hover:text-white border border-transparent"
-                }`}
-              >
-                <span className="text-lg">{item.icono}</span>
-                {item.nombre}
-              </Link>
-            );
-          })}
+          <div>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">
+              Administración
+            </p>
+            <div className="space-y-1">
+              {renderizarLinks(menuAdministracion)}
+            </div>
+          </div>
         </nav>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-800 bg-gray-900/50">
+        {/* Footer: Perfil y Salida */}
+        <div className="p-4 border-t border-gray-800 bg-gray-950 flex flex-col gap-2 shrink-0">
+          <Link
+            href="/admin/configusr" // 👈 Asegúrate de que apunte aquí
+            onClick={() => setAbierto(false)}
+            // ... resto de las clases
+          >
+            <span>⚙️</span> Mi Perfil
+          </Link>
           <button
             onClick={cerrarSesion}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-colors text-sm font-bold border border-red-500/20"
+            className="w-full flex items-center gap-3 px-4 py-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-colors text-sm font-bold border border-red-500/20"
           >
             <span>🚪</span> Cerrar Sesión
           </button>

@@ -150,7 +150,8 @@ model sedes {
   nombre           String             @db.VarChar(100)
   direccion        String?            @db.VarChar(200)
   telefono         String?            @db.VarChar(20)
-  estado           String?            @default("Activa") @db.VarChar(20)
+  ciudad      String?     @db.VarChar(100) 
+  estado      String?     @db.VarChar(50) @default("Activa")
   fecha_creacion   DateTime?          @default(now()) @db.Timestamp(6)
   cierres_caja     cierres_caja[]
   cuentas          cuentas[]
@@ -185,6 +186,7 @@ model usuarios {
   password_hash            String                     @db.VarChar(255)
   rol                      String                     @db.VarChar(20)
   estado                   String?                    @default("Activo") @db.VarChar(20)
+  avatar_url               String?                    @db.VarChar(255)
   cierres_caja             cierres_caja[]
   cuentas                  cuentas[]
   historial_ingresos_stock historial_ingresos_stock[]

@@ -1,47 +1,38 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  UseInterceptors,
-  UploadedFile,
-} from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-// 🛡️ Importamos el servicio y nuestro nuevo molde
-import { ProductosService, DatosProducto } from './productos.service';
+import { Controller, Get, Post, Delete, Body, Param } from '@nestjs/common';
+import { MesasService } from './mesas.service';
 
-@Controller('productos')
-export class ProductosController {
-  constructor(private readonly productosService: ProductosService) {}
-
-  @Post()
-  @UseInterceptors(
-    FileInterceptor('imagen', {
-      storage: diskStorage({
-        destination: './uploads/productos',
-        filename: (req, file, callback) => {
-          const nombreUnico = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-          const extension = extname(file.originalname);
-          callback(null, `prod-${nombreUnico}${extension}`);
-        },
-      }),
-    }),
-  )
-  // 🛡️ Reemplazamos 'any' por 'DatosProducto'
-  crear(
-    @Body() datosProducto: DatosProducto,
-    @UploadedFile() archivo: Express.Multer.File,
-  ) {
-    const rutaImagen = archivo
-      ? `/uploads/productos/${archivo.filename}`
-      : null;
-    return this.productosService.crear(datosProducto, rutaImagen);
-  }
+@Controller('mesas')
+export class MesasController {
+  constructor(private readonly mesasService: MesasService) {}
 
   @Get()
-  obtenerTodos() {
-    return this.productosService.obtenerTodos();
+  obtenerTodas() {
+    return this.mesasService.obtenerTodas();
+  }
+
+  // Agrega esto junto a tus otros @Get
+  @Get('sede/:id_sede')
+  async obtenerPorSede(@Param('id_sede') id_sede: string) {
+    return this.mesasService.obtenerPorSede(Number(id_sede));
+  }
+
+  @Post()
+  crear(@Body() datos: { id_sede: string | number; capacidad: number }) {
+    // 👇 AQUÍ ESTÁ LA MAGIA: Forzamos a que sean números antes de enviarlos al servicio
+    return this.mesasService.crear({
+      id_sede: Number(datos.id_sede),
+      capacidad: Number(datos.capacidad),
+    });
+  }
+
+  @Delete('sede/:idSede/capacidad/:capacidad')
+  eliminarPorCapacidad(
+    @Param('idSede') idSede: string,
+    @Param('capacidad') capacidad: string,
+  ) {
+    return this.mesasService.eliminarUltimaPorCapacidad(
+      Number(idSede),
+      Number(capacidad),
+    );
   }
 }
