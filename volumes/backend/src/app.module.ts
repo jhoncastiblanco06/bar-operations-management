@@ -12,6 +12,9 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { InventarioModule } from './inventario/inventario.module';
 import { CajaModule } from './caja/caja.module';
+import { OrdenesModule } from './ordenes/ordenes.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { SubcategoriasModule } from './subcategorias/subcategorias.module';
 
 @Module({
   imports: [
@@ -29,6 +32,9 @@ import { CajaModule } from './caja/caja.module';
     CategoriasModule,
     InventarioModule,
     CajaModule,
+    OrdenesModule,
+    DashboardModule,
+    SubcategoriasModule,
   ],
   controllers: [AppController],
   providers: [AppService],

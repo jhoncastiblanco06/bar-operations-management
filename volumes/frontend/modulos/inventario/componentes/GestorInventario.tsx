@@ -9,9 +9,25 @@ interface Categoria {
   nombre: string;
 }
 
+// 🚀 NUEVO: Interfaz para Subcategorías
+interface Subcategoria {
+  id_subcategoria: number;
+  id_categoria: number;
+  nombre: string;
+}
+
 export default function GestorInventario() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+
+  // 🚀 NUEVO: Estados para Subcategorías
+  const [todasSubcategorias, setTodasSubcategorias] = useState<Subcategoria[]>(
+    [],
+  );
+  const [subcategoriasFiltradas, setSubcategoriasFiltradas] = useState<
+    Subcategoria[]
+  >([]);
+
   const [estaCargando, setEstaCargando] = useState(false);
 
   // Estados de Edición y Eliminación
@@ -28,26 +44,35 @@ export default function GestorInventario() {
   const [costo, setCosto] = useState("");
   const [precio, setPrecio] = useState("");
   const [idCategoria, setIdCategoria] = useState("");
+  const [idSubcategoria, setIdSubcategoria] = useState(""); // 🚀 NUEVO: Estado para el formulario
   const [imagen, setImagen] = useState<File | null>(null);
   const [imagenUrlActual, setImagenUrlActual] = useState<string | null>(null);
 
   const [creandoCategoria, setCreandoCategoria] = useState(false);
   const [nombreNuevaCategoria, setNombreNuevaCategoria] = useState("");
 
+  // 🚀 NUEVO: Estados para crear subcategoría en línea
+  const [creandoSubcategoria, setCreandoSubcategoria] = useState(false);
+  const [nombreNuevaSubcategoria, setNombreNuevaSubcategoria] = useState("");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const cargarDatos = async () => {
     try {
-      const [resProductos, resCategorias] = await Promise.all([
+      // 🚀 NUEVO: Agregamos el fetch de subcategorias a la carga inicial
+      const [resProductos, resCategorias, resSubcats] = await Promise.all([
         fetch(`${API_URL}/productos`),
         fetch(`${API_URL}/categorias`),
+        fetch(`${API_URL}/subcategorias`),
       ]);
 
       const datosProductos = await resProductos.json();
       const datosCategorias = await resCategorias.json();
+      const datosSubcats = await resSubcats.json();
 
       setProductos(Array.isArray(datosProductos) ? datosProductos : []);
       setCategorias(Array.isArray(datosCategorias) ? datosCategorias : []);
+      setTodasSubcategorias(Array.isArray(datosSubcats) ? datosSubcats : []);
     } catch (error) {
       console.error("Error al cargar datos:", error);
     }
@@ -56,6 +81,20 @@ export default function GestorInventario() {
   useEffect(() => {
     cargarDatos();
   }, []);
+
+  // 🚀 NUEVO: Efecto que carga las subcategorías dependiendo de la categoría elegida
+  useEffect(() => {
+    if (idCategoria) {
+      fetch(`${API_URL}/subcategorias/categoria/${idCategoria}`)
+        .then((res) => res.json())
+        .then((data) =>
+          setSubcategoriasFiltradas(Array.isArray(data) ? data : []),
+        );
+    } else {
+      setSubcategoriasFiltradas([]);
+      setIdSubcategoria("");
+    }
+  }, [idCategoria]);
 
   const manejarCrearCategoria = async () => {
     if (!nombreNuevaCategoria.trim()) return;
@@ -80,6 +119,41 @@ export default function GestorInventario() {
     }
   };
 
+  // 🚀 NUEVO: Función para crear Subcategoría rápida
+  const manejarCrearSubcategoria = async () => {
+    if (!nombreNuevaSubcategoria.trim() || !idCategoria) return;
+    try {
+      const res = await fetch(`${API_URL}/subcategorias`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: nombreNuevaSubcategoria,
+          id_categoria: Number(idCategoria),
+        }),
+      });
+      if (res.ok) {
+        const nuevaSubcat = await res.json();
+        await cargarDatos(); // Recarga la lista maestra
+
+        // Forzamos la actualización del select de subcategorías
+        const resFiltro = await fetch(
+          `${API_URL}/subcategorias/categoria/${idCategoria}`,
+        );
+        const dataFiltro = await resFiltro.json();
+        setSubcategoriasFiltradas(dataFiltro);
+
+        setIdSubcategoria(nuevaSubcat.id_subcategoria.toString());
+        setCreandoSubcategoria(false);
+        setNombreNuevaSubcategoria("");
+      } else {
+        const errorData = await res.json();
+        alert(`Error: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error("Error al crear subcategoría", error);
+    }
+  };
+
   const resetearFormulario = () => {
     setModoEdicion(false);
     setIdProductoEdicion(null);
@@ -87,6 +161,7 @@ export default function GestorInventario() {
     setCosto("");
     setPrecio("");
     setIdCategoria("");
+    setIdSubcategoria(""); // 🚀 NUEVO
     setImagen(null);
     setImagenUrlActual(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -99,8 +174,11 @@ export default function GestorInventario() {
     setCosto(prod.costo_compra.toString());
     setPrecio(prod.precio_venta.toString());
     setIdCategoria(prod.id_categoria.toString());
-    setImagen(null); // Reseteamos el input de archivo
-    setImagenUrlActual(prod.imagen_url || null); // Guardamos la URL actual para mostrarla
+    setIdSubcategoria(
+      prod.id_subcategoria ? prod.id_subcategoria.toString() : "",
+    ); // 🚀 NUEVO
+    setImagen(null);
+    setImagenUrlActual(prod.imagen_url || null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -118,7 +196,11 @@ export default function GestorInventario() {
       datosFormulario.append("precio_venta", precio);
       datosFormulario.append("id_categoria", idCategoria);
 
-      // Solo adjuntamos la imagen si el usuario seleccionó una nueva
+      // 🚀 NUEVO: Adjuntamos la subcategoría si fue seleccionada
+      if (idSubcategoria) {
+        datosFormulario.append("id_subcategoria", idSubcategoria);
+      }
+
       if (imagen) {
         datosFormulario.append("imagen", imagen);
       }
@@ -126,13 +208,11 @@ export default function GestorInventario() {
       const url = modoEdicion
         ? `${API_URL}/productos/${idProductoEdicion}`
         : `${API_URL}/productos`;
-      // IMPORTANTE: Para subir archivos con PATCH en NestJS/Multer, a veces es mejor usar POST y controlar la lógica en el backend,
-      // pero usaremos PATCH asumiendo que tu backend lo soporta.
       const metodo = modoEdicion ? "PATCH" : "POST";
 
       const respuesta = await fetch(url, {
         method: metodo,
-        body: datosFormulario, // FormData establece automáticamente los headers correctos (multipart/form-data)
+        body: datosFormulario,
       });
 
       if (respuesta.ok) {
@@ -154,9 +234,7 @@ export default function GestorInventario() {
     try {
       const res = await fetch(
         `${API_URL}/productos/${productoAEliminar.id_producto}`,
-        {
-          method: "DELETE",
-        },
+        { method: "DELETE" },
       );
       if (res.ok) {
         setProductoAEliminar(null);
@@ -206,7 +284,6 @@ export default function GestorInventario() {
                 Foto del Producto
               </label>
 
-              {/* Vista previa de imagen en modo edición */}
               {modoEdicion && imagenUrlActual && !imagen && (
                 <div className="relative w-full h-32 bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
                   <img
@@ -214,11 +291,6 @@ export default function GestorInventario() {
                     alt="Actual"
                     className="w-full h-full object-contain"
                   />
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                    <span className="text-xs text-white bg-black/80 px-2 py-1 rounded">
-                      Imagen Actual
-                    </span>
-                  </div>
                 </div>
               )}
 
@@ -231,11 +303,6 @@ export default function GestorInventario() {
                 }
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600/20 file:text-blue-400 hover:file:bg-blue-600/30"
               />
-              {modoEdicion && (
-                <p className="text-[10px] text-gray-500">
-                  Deja vacío para mantener la imagen actual.
-                </p>
-              )}
             </div>
 
             <div>
@@ -252,56 +319,122 @@ export default function GestorInventario() {
             </div>
 
             {/* ZONA DE CATEGORÍAS */}
-            <div className="bg-gray-950 p-3 rounded-xl border border-gray-800">
-              <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">
-                Categoría
-              </label>
-              {!creandoCategoria ? (
-                <div className="flex gap-2">
-                  <select
-                    required
-                    value={idCategoria}
-                    onChange={(e) => setIdCategoria(e.target.value)}
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
-                  >
-                    <option value="">-- Seleccionar --</option>
-                    {categorias.map((cat) => (
-                      <option key={cat.id_categoria} value={cat.id_categoria}>
-                        {cat.nombre}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setCreandoCategoria(true)}
-                    className="bg-gray-800 hover:bg-blue-600 text-gray-300 hover:text-white px-3 rounded-lg border border-gray-700 font-bold transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    autoFocus
-                    value={nombreNuevaCategoria}
-                    onChange={(e) => setNombreNuevaCategoria(e.target.value)}
-                    className="flex-1 bg-gray-800 border border-blue-500 rounded-lg px-3 py-2 text-white outline-none"
-                    placeholder="Nueva Categoría"
-                  />
-                  <button
-                    type="button"
-                    onClick={manejarCrearCategoria}
-                    className="bg-green-600 hover:bg-green-500 text-white px-3 rounded-lg font-bold"
-                  >
-                    ✓
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCreandoCategoria(false)}
-                    className="bg-red-900/50 hover:bg-red-500 text-red-400 hover:text-white px-3 rounded-lg font-bold"
-                  >
-                    ✕
-                  </button>
+            <div className="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">
+                  Categoría Principal
+                </label>
+                {!creandoCategoria ? (
+                  <div className="flex gap-2">
+                    <select
+                      required
+                      value={idCategoria}
+                      onChange={(e) => setIdCategoria(e.target.value)}
+                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
+                    >
+                      <option value="">-- Seleccionar --</option>
+                      {categorias.map((cat) => (
+                        <option key={cat.id_categoria} value={cat.id_categoria}>
+                          {cat.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setCreandoCategoria(true)}
+                      className="bg-gray-800 hover:bg-blue-600 text-gray-300 hover:text-white px-3 rounded-lg border border-gray-700 font-bold transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      autoFocus
+                      value={nombreNuevaCategoria}
+                      onChange={(e) => setNombreNuevaCategoria(e.target.value)}
+                      className="flex-1 bg-gray-800 border border-blue-500 rounded-lg px-3 py-2 text-white outline-none"
+                      placeholder="Nueva Categoría"
+                    />
+                    <button
+                      type="button"
+                      onClick={manejarCrearCategoria}
+                      className="bg-green-600 hover:bg-green-500 text-white px-3 rounded-lg font-bold"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCreandoCategoria(false)}
+                      className="bg-red-900/50 hover:bg-red-500 text-red-400 hover:text-white px-3 rounded-lg font-bold"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 🚀 NUEVO: ZONA DE SUBCATEGORÍAS (Solo se muestra si hay una categoría elegida) */}
+              {idCategoria && !creandoCategoria && (
+                <div className="pt-3 border-t border-gray-800/50 animate-in fade-in">
+                  <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">
+                    Subcategoría{" "}
+                    <span className="text-[9px] text-gray-600 lowercase">
+                      (Opcional)
+                    </span>
+                  </label>
+                  {!creandoSubcategoria ? (
+                    <div className="flex gap-2">
+                      <select
+                        value={idSubcategoria}
+                        onChange={(e) => setIdSubcategoria(e.target.value)}
+                        className="flex-1 bg-gray-800/50 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 text-sm"
+                      >
+                        <option value="">-- Sin Subcategoría --</option>
+                        {subcategoriasFiltradas.map((sub) => (
+                          <option
+                            key={sub.id_subcategoria}
+                            value={sub.id_subcategoria}
+                          >
+                            ↳ {sub.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setCreandoSubcategoria(true)}
+                        className="bg-gray-800/50 hover:bg-blue-600 text-gray-300 hover:text-white px-3 rounded-lg border border-gray-700 font-bold transition-colors"
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        autoFocus
+                        value={nombreNuevaSubcategoria}
+                        onChange={(e) =>
+                          setNombreNuevaSubcategoria(e.target.value)
+                        }
+                        className="flex-1 bg-gray-800 border border-blue-500 rounded-lg px-3 py-2 text-white outline-none text-sm"
+                        placeholder="Ej. Cerveza Artesanal"
+                      />
+                      <button
+                        type="button"
+                        onClick={manejarCrearSubcategoria}
+                        className="bg-green-600 hover:bg-green-500 text-white px-3 rounded-lg font-bold"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCreandoSubcategoria(false)}
+                        className="bg-red-900/50 hover:bg-red-500 text-red-400 hover:text-white px-3 rounded-lg font-bold"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -362,7 +495,6 @@ export default function GestorInventario() {
                   key={producto.id_producto}
                   className="bg-gray-800/80 rounded-2xl border border-gray-700 flex flex-col hover:border-gray-500 transition-all group overflow-hidden"
                 >
-                  {/* Imagen y Etiqueta (Sin los botones ocultos) */}
                   <div className="h-40 w-full bg-gray-900 relative flex items-center justify-center overflow-hidden border-b border-gray-700">
                     <div
                       className={`absolute top-2 right-2 backdrop-blur-md px-2 py-1 rounded-md text-[10px] font-bold z-10 border ${producto.estado === "Inactivo" ? "bg-red-900/80 text-red-100 border-red-500" : "bg-black/60 text-white border-gray-600"}`}
@@ -373,7 +505,6 @@ export default function GestorInventario() {
                       <img
                         src={`${API_URL}${producto.imagen_url}`}
                         alt={producto.nombre}
-                        // 👇 CAMBIAMOS 'object-cover' por 'object-contain' y le damos un poco de 'p-2' (padding) para que respire
                         className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src =
@@ -387,38 +518,34 @@ export default function GestorInventario() {
 
                   {/* Detalles Info */}
                   <div className="p-4 flex flex-col flex-1">
-                    {/* 🛡️ NUEVO: Botones de Acción siempre visibles */}
-                    <div className="mt-auto flex justify-end gap-2 border-t border-gray-700 pt-3">
-                      <button
-                        onClick={() => iniciarEdicion(producto)}
-                        className="bg-gray-900 hover:bg-purple-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-gray-700 hover:border-purple-500 flex items-center gap-1"
-                      >
-                        ✏️ Editar
-                      </button>
-                      <button
-                        onClick={() => setProductoAEliminar(producto)}
-                        className="bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-gray-700 hover:border-red-500 flex items-center gap-1"
-                      >
-                        🗑️ Eliminar
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Detalles Info */}
-                  <div className="p-4 flex flex-col flex-1">
                     <h3
                       className="font-bold text-sm text-white line-clamp-2 mb-1"
                       title={producto.nombre}
                     >
                       {producto.nombre}
                     </h3>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-3">
-                      {categorias.find(
-                        (c) => c.id_categoria === producto.id_categoria,
-                      )?.nombre || "Sin Categoría"}
-                    </p>
 
-                    <div className="mt-auto flex justify-between items-center bg-gray-950/50 p-2 rounded-lg border border-gray-800">
+                    {/* 🚀 NUEVO: Mostramos Categoría y Subcategoría en la tarjeta */}
+                    <div className="mb-3">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider leading-tight">
+                        {categorias.find(
+                          (c) => c.id_categoria === producto.id_categoria,
+                        )?.nombre || "Sin Categoría"}
+                      </p>
+                      {producto.id_subcategoria && (
+                        <p className="text-[9px] text-blue-400 font-bold uppercase tracking-wide">
+                          ↳{" "}
+                          {
+                            todasSubcategorias.find(
+                              (s) =>
+                                s.id_subcategoria === producto.id_subcategoria,
+                            )?.nombre
+                          }
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-auto flex justify-between items-center bg-gray-950/50 p-2 rounded-lg border border-gray-800 mb-3">
                       <div>
                         <p className="text-[9px] text-gray-500 uppercase">
                           Costo
@@ -436,6 +563,21 @@ export default function GestorInventario() {
                         </p>
                       </div>
                     </div>
+
+                    <div className="flex justify-end gap-2 border-t border-gray-700 pt-3">
+                      <button
+                        onClick={() => iniciarEdicion(producto)}
+                        className="bg-gray-900 hover:bg-purple-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-gray-700 hover:border-purple-500 flex items-center gap-1"
+                      >
+                        ✏️ Editar
+                      </button>
+                      <button
+                        onClick={() => setProductoAEliminar(producto)}
+                        className="bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-gray-700 hover:border-red-500 flex items-center gap-1"
+                      >
+                        🗑️ Eliminar
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -444,7 +586,7 @@ export default function GestorInventario() {
         </div>
       </div>
 
-      {/* 🛑 Modal de Eliminación 🛑 */}
+      {/* Modal de Eliminación */}
       {productoAEliminar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-gray-900 border border-gray-700 rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center">
@@ -454,8 +596,8 @@ export default function GestorInventario() {
             </h3>
             <p className="text-gray-400 text-sm mb-6">
               Estás a punto de eliminar{" "}
-              <strong className="text-white">{productoAEliminar.nombre}</strong>{" "}
-              del catálogo maestro.
+              <strong className="text-white">{productoAEliminar.nombre}</strong>
+              .
             </p>
             <div className="flex gap-3">
               <button

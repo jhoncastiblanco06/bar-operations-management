@@ -40,4 +40,5 @@ export interface Producto {
   estado: string;
   imagen_url?: string | null;
   id_categoria: number;
+  id_subcategoria: number;
 }

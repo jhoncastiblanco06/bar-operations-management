@@ -12,8 +12,8 @@ export default function MenuLateral() {
   // Menú dividido por categorías para mayor orden
   const menuOperacion = [
     { nombre: "Dashboard", ruta: "/admin", icono: "📊" },
-    { nombre: "Caja (POS)", ruta: "/admin/caja", icono: "🖥️" },
-    { nombre: "Panel Meseros", ruta: "/meseros", icono: "📱" },
+    { nombre: "Caja", ruta: "/admin/caja", icono: "🖥️" },
+    { nombre: "Panel Meseros", ruta: "/admin/meseros", icono: "📱" },
   ];
 
   const menuLogistica = [
