@@ -1,0 +1,41 @@
+name: Deploy con Cloudflare Tunnel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Instalar cloudflared
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cloudflared
+
+      - name: Configurar SSH
+        run: |
+          mkdir -p ~/.ssh
+
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          cat > ~/.ssh/config << EOF
+          Host server
+            HostName ssh.fljgroup.site
+            User kasay
+            IdentityFile ~/.ssh/id_ed25519
+            ProxyCommand cloudflared access ssh --hostname %h
+            StrictHostKeyChecking no
+          EOF
+
+      - name: Ejecutar deploy
+        run: |
+          ssh server << 'EOF'
+            cd ${{ secrets.WORK_DIR }}
+            git pull origin main
+            docker compose up -d --build
+            docker image prune -f
+          EOF
