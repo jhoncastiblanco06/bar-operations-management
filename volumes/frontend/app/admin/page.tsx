@@ -218,7 +218,7 @@ export default function PaginaDashboardAdmin() {
           </p>
           <div className="text-[10px] mt-4 px-3 py-1.5 bg-gray-950 border border-gray-800 rounded-full text-green-500 font-bold tracking-wider flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500"></span> Base de
-            DatosOK
+            Datos OK
           </div>
         </div>
       </section>
