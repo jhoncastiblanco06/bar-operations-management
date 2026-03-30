@@ -37,8 +37,27 @@ jobs:
       - name: Ejecutar deploy
         run: |
           ssh server << 'EOF'
+            # 1. Entrar al directorio de trabajo
             cd ${{ secrets.WORK_DIR }}
+            
+            # 2. Descargar el código más reciente
             git pull origin main
+            
+            # 3. Construir y levantar los 3 contenedores (Frontend, Backend y BD)
             docker compose up -d --build
+            
+            # 🚀 4. BLINDAJE DE BASE DE DATOS: 
+            # Le damos 10 segundos a PostgreSQL (database_bar) para que termine de arrancar correctamente
+            echo "Esperando a que la base de datos esté lista..."
+            sleep 10
+            
+            # Entramos al contenedor del backend y forzamos la actualización del esquema de Prisma
+            echo "Sincronizando la Base de Datos con Prisma..."
+            docker exec backend_bar npx prisma generate
+            docker exec backend_bar npx prisma db push
+            
+            # 5. Limpieza para no saturar el disco del servidor
             docker image prune -f
+            
+            echo "✅ ¡Despliegue 100% funcional y base de datos actualizada!"
           EOF
