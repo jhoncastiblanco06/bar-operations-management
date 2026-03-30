@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -34,6 +38,7 @@ jobs:
       - name: Ejecutar deploy
         run: |
           ssh server << 'EOF'
+            set -e
             cd ${{ secrets.WORK_DIR }}
             git pull origin main
             docker compose up -d --build
