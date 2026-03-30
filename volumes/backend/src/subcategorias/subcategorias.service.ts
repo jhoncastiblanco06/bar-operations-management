@@ -25,7 +25,6 @@ export class SubcategoriasService {
     });
   }
 
-  // 🚀 MUY ÚTIL: Obtener subcategorías dependiendo de la categoría elegida
   async obtenerPorCategoria(id_categoria: number) {
     return await this.prisma.subcategorias.findMany({
       where: {
