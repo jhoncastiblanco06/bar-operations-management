@@ -12,9 +12,9 @@ jobs:
     steps:
       - name: Instalar cloudflared
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cloudflared
-
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+          chmod +x cloudflared
+          sudo mv cloudflared /usr/local/bin/
       - name: Configurar SSH
         run: |
           mkdir -p ~/.ssh
