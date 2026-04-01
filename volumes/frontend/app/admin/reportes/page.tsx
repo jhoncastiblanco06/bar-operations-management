@@ -1,6 +1,6 @@
 // src/app/admin/reportes/page.tsx
 
-import GestorReportes from "../../../modulos/reportes/componentes/GestorReportes";
+import GestorReportes from "../../../modulos/admin/panel-reportes/GestorReportes";
 
 export default function PaginaReportesAdmin() {
   return (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { API_URL } from "../../../../utilidades/api"; // Ajusta la ruta si es necesario
+import { API_URL } from "../../../utilidades/api"; // Ajusta la ruta si es necesario
 
 export default function GestorPerfilMesero() {
   const router = useRouter();

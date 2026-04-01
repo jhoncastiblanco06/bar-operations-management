@@ -15,6 +15,7 @@ import { CajaModule } from './caja/caja.module';
 import { OrdenesModule } from './ordenes/ordenes.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { SubcategoriasModule } from './subcategorias/subcategorias.module';
+import { ReportesModule } from './reportes/reportes.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { SubcategoriasModule } from './subcategorias/subcategorias.module';
     OrdenesModule,
     DashboardModule,
     SubcategoriasModule,
+    ReportesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

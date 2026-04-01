@@ -1,6 +1,6 @@
 // src/app/admin/inventario/page.tsx
 
-import GestorInventario from "../../../modulos/inventario/componentes/GestorInventario";
+import GestorInventario from "../../../modulos/admin/gestion-inventario/GestorInventario";
 
 export default function PaginaInventarioAdmin() {
   return (

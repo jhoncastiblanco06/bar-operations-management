@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { API_URL } from "../../../utilidades/api"; // Ajusta la ruta según tu proyecto
+import { API_URL } from "../../utilidades/api"; // Ajusta la ruta según tu proyecto
 
 interface CuentaActiva {
   id_cuenta: number;

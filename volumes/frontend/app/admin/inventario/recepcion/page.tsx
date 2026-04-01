@@ -1,4 +1,4 @@
-import GestorRecepcion from "../../../../modulos/inventario/componentes/GestorRecepcion";
+import GestorRecepcion from "../../../../modulos/admin/gestion-inventario/GestorRecepcion";
 
 export default function PaginaRecepcionAdmin() {
   return (

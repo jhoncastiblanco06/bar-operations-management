@@ -1,6 +1,6 @@
 // src/app/admin/usuarios/page.tsx
 
-import GestorUsuarios from "../../../modulos/usuarios/componentes/GestorUsuarios";
+import GestorUsuarios from "../../../modulos/admin/gestion-usuarios/GestorUsuarios";
 
 export default function PaginaUsuariosAdmin() {
   return (

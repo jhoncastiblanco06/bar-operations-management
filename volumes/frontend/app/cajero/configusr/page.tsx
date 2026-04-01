@@ -1,4 +1,4 @@
-import GestorPerfilMesero from "../../../modulos/cajero/componentes/configusr/GestorPerfil";
+import GestorPerfilMesero from "../../../modulos/cajero/gestorperfil/GestorPerfil";
 
 export default function PaginaConfiguracionMesero() {
   return (

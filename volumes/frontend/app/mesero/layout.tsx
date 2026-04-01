@@ -7,7 +7,6 @@ export default function MeseroLayout({
   children: React.ReactNode;
 }) {
   return (
-    // 🚀 AQUÍ ESTÁ LA MAGIA: Envolvemos todo y le decimos quién puede entrar
     <ProtectorRutas rolesPermitidos={["Mesero", "Administrador"]}>
       <div className="flex min-h-screen bg-gray-950 text-white font-sans">
         {/* Sidebar Exclusivo para Meseros */}

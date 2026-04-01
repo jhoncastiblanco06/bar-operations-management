@@ -1,5 +1,5 @@
 // src/app/admin/caja/page.tsx
-import GestorCaja from "../../../modulos/caja/componentes/GestorCaja";
+import GestorCaja from "../../../modulos/admin/panel-cajero/GestorCaja";
 
 export default function PaginaCajaAdmin() {
   return (

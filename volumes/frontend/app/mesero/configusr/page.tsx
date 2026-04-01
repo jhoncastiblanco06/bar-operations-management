@@ -1,4 +1,4 @@
-import GestorPerfilMesero from "../../../modulos/mesero/componentes/configusr/GestorPerfil";
+import GestorPerfilMesero from "../../../modulos/mesero/GestorPerfil";
 
 export default function PaginaConfiguracionMesero() {
   return (

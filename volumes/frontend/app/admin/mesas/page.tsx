@@ -1,6 +1,6 @@
 // src/app/admin/mesas/page.tsx
 
-import GestorAforo from "../../../modulos/mesas/componentes/GestorAforo";
+import GestorAforo from "../../../modulos/admin/gestion-mesas/GestorAforo";
 
 export default function PaginaMesasAdmin() {
   return (

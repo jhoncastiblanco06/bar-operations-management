@@ -1,7 +1,7 @@
 // src/app/admin/configusr/page.tsx
 
 // Importamos el componente con el nombre exacto que le diste al archivo
-import GestorPerfil from "../../../modulos/usuarios/componentes/admin/GestorPerfil";
+import GestorPerfil from "../../../modulos/admin/gestorperfil/GestorPerfil";
 
 export default function PaginaConfiguracionUsuario() {
   return (
