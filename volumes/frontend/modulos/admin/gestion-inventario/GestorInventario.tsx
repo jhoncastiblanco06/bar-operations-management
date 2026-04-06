@@ -9,7 +9,6 @@ interface Categoria {
   nombre: string;
 }
 
-// 🚀 NUEVO: Interfaz para Subcategorías
 interface Subcategoria {
   id_subcategoria: number;
   id_categoria: number;
@@ -59,7 +58,6 @@ export default function GestorInventario() {
 
   const cargarDatos = async () => {
     try {
-      // 🚀 NUEVO: Agregamos el fetch de subcategorias a la carga inicial
       const [resProductos, resCategorias, resSubcats] = await Promise.all([
         fetch(`${API_URL}/productos`),
         fetch(`${API_URL}/categorias`),
@@ -119,7 +117,6 @@ export default function GestorInventario() {
     }
   };
 
-  // 🚀 NUEVO: Función para crear Subcategoría rápida
   const manejarCrearSubcategoria = async () => {
     if (!nombreNuevaSubcategoria.trim() || !idCategoria) return;
     try {
@@ -176,7 +173,7 @@ export default function GestorInventario() {
     setIdCategoria(prod.id_categoria.toString());
     setIdSubcategoria(
       prod.id_subcategoria ? prod.id_subcategoria.toString() : "",
-    ); // 🚀 NUEVO
+    );
     setImagen(null);
     setImagenUrlActual(prod.imagen_url || null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -525,7 +522,6 @@ export default function GestorInventario() {
                       {producto.nombre}
                     </h3>
 
-                    {/* 🚀 NUEVO: Mostramos Categoría y Subcategoría en la tarjeta */}
                     <div className="mb-3">
                       <p className="text-[10px] text-gray-400 uppercase tracking-wider leading-tight">
                         {categorias.find(
