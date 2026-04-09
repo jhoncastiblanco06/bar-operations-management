@@ -56,8 +56,8 @@ jobs:
             echo "Generando cliente de Prisma..."
             docker exec backend_bar npx prisma generate
             
-            echo "Aplicando migraciones SEGURAS a la base de datos..."
-            docker exec backend_bar npx prisma migrate deploy
+            echo "Sincronizando Base de Datos de forma segura..."
+            docker exec backend_bar npx prisma db push
             
             # 6. Limpieza
             docker image prune -f
