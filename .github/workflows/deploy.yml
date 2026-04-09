@@ -39,9 +39,11 @@ jobs:
           ssh server << 'EOF'
             # 1. Entrar al directorio de trabajo
             cd ${{ secrets.WORK_DIR }}
-            
-            # 2. Descargar el código más reciente
-            git pull origin main
+
+            # 2. Forzar la descarga exacta desde GitHub (Ignorando conflictos locales)
+            git fetch origin
+            git reset --hard origin/main
+            git clean -fd
             
             # 3. Construir y levantar los contenedores
             docker compose up -d --build
@@ -54,8 +56,8 @@ jobs:
             echo "Generando cliente de Prisma..."
             docker exec backend_bar npx prisma generate
             
-            echo "Aplicando migraciones SEGURAS a la base de datos..."
-            docker exec backend_bar npx prisma migrate deploy
+            echo "Sincronizando Base de Datos de forma segura..."
+            docker exec backend_bar npx prisma db push
             
             # 6. Limpieza
             docker image prune -f
