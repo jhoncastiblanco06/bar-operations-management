@@ -148,6 +148,7 @@ volumes/backend/node_modules/
 
 # Ignorar la base de datos física
 volumes/db/
+volumes/backend/uploads/
 
 # Ignorar las contraseñas y variables de entorno
 .env
