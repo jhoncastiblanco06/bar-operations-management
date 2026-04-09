@@ -137,6 +137,46 @@ export default function TomaDePedidosMesero() {
     });
   };
 
+  const repetirPedido = () => {
+    if (!cuentaExistente) return;
+    setPedidoActual((prev) => {
+      let pedidoActualizado = [...prev];
+      cuentaExistente.historialAgrupado.forEach((item: any) => {
+        const productoEnStock = productos.find(
+          (p) => p.id_producto === item.id_producto,
+        );
+        if (!productoEnStock || productoEnStock.stock_actual <= 0) return;
+        const existe = pedidoActualizado.find(
+          (p) => p.id_producto === item.id_producto,
+        );
+        const cantidadEnPedido = existe ? existe.cantidad : 0;
+        const cantidadAdicional = Math.min(
+          item.cantidad,
+          productoEnStock.stock_actual - cantidadEnPedido,
+        );
+        if (cantidadAdicional <= 0) return;
+        if (existe) {
+          pedidoActualizado = pedidoActualizado.map((p) =>
+            p.id_producto === item.id_producto
+              ? { ...p, cantidad: p.cantidad + cantidadAdicional }
+              : p,
+          );
+        } else {
+          pedidoActualizado = [
+            ...pedidoActualizado,
+            {
+              id_producto: item.id_producto,
+              nombre: item.nombre,
+              precio_venta: item.precio_unitario,
+              cantidad: cantidadAdicional,
+            },
+          ];
+        }
+      });
+      return pedidoActualizado;
+    });
+  };
+
   const quitarDelPedido = (idProducto: number) => {
     setPedidoActual((prev) => {
       const existe = prev.find((p) => p.id_producto === idProducto);
@@ -305,9 +345,17 @@ export default function TomaDePedidosMesero() {
           {/* 📜 HISTORIAL: Lo que ya consumieron (Solo de lectura) */}
           {cuentaExistente && cuentaExistente.historialAgrupado.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest border-b border-gray-800 pb-1 mb-2">
-                Ya en mesa
-              </h4>
+              <div className="flex justify-between items-center border-b border-gray-800 pb-1 mb-2">
+                <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
+                  Ya en mesa
+                </h4>
+                <button
+                  onClick={repetirPedido}
+                  className="text-[10px] font-black uppercase tracking-widest text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
+                >
+                  🔄 Repetir
+                </button>
+              </div>
               {cuentaExistente.historialAgrupado.map((item: any) => (
                 <div
                   key={`hist-${item.id_producto}`}
