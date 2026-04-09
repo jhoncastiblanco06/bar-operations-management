@@ -39,9 +39,11 @@ jobs:
           ssh server << 'EOF'
             # 1. Entrar al directorio de trabajo
             cd ${{ secrets.WORK_DIR }}
-            
-            # 2. Descargar el código más reciente
-            git pull origin main
+
+            # 2. Forzar la descarga exacta desde GitHub (Ignorando conflictos locales)
+            git fetch origin
+            git reset --hard origin/main
+            git clean -fd
             
             # 3. Construir y levantar los contenedores
             docker compose up -d --build
