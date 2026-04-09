@@ -192,20 +192,22 @@ model tipos_movimiento {
   movimientos_inventario movimientos_inventario[]
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model usuarios {
-  id_usuario               Int                        @id @default(autoincrement())
+  id_usuario               Int                      @id @default(autoincrement())
   id_sede                  Int?
-  nombre_completo          String                     @db.VarChar(150)
-  email                    String                     @unique @db.VarChar(100)
-  password_hash            String                     @db.VarChar(255)
-  rol                      String                     @db.VarChar(20)
-  estado                   String?                    @default("Activo") @db.VarChar(20)
-  avatar_url               String?                    @db.VarChar(255)
+  documento                String?                  @unique @db.VarChar(20)
+  nombre_completo          String                   @db.VarChar(150)
+  email                    String                   @unique @db.VarChar(100)
+  telefono                 String?                  @db.VarChar(20)
+  password_hash            String                   @db.VarChar(255)
+  rol                      String                   @db.VarChar(20)
+  turno                    String?                  @db.VarChar(20)
+  estado                   String?                  @default("Activo") @db.VarChar(20)
+  avatar_url               String?                  @db.VarChar(255)
   cierres_caja             cierres_caja[]
   cuentas                  cuentas[]
   historial_ingresos_stock historial_ingresos_stock[]
   movimientos_inventario   movimientos_inventario[]
   pagos_facturas           pagos_facturas[]
-  sedes                    sedes?                     @relation(fields: [id_sede], references: [id_sede], onDelete: NoAction, onUpdate: NoAction)
+  sedes                    sedes?                   @relation(fields: [id_sede], references: [id_sede], onDelete: NoAction, onUpdate: NoAction)
 }

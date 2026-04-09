@@ -4,8 +4,15 @@ import { useState, useEffect } from "react";
 import { Usuario, Sede } from "../../../tipos";
 import { API_URL } from "../../../utilidades/api";
 
+// Ampliamos la interfaz para incluir los nuevos campos
+interface UsuarioExtendido extends Usuario {
+  documento?: string;
+  telefono?: string;
+  turno?: string;
+}
+
 export default function GestorUsuarios() {
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [usuarios, setUsuarios] = useState<UsuarioExtendido[]>([]);
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [estaCargando, setEstaCargando] = useState(false);
 
@@ -14,17 +21,20 @@ export default function GestorUsuarios() {
   const [idUsuarioEdicion, setIdUsuarioEdicion] = useState<number | null>(null);
 
   // Estados del formulario
+  const [documento, setDocumento] = useState("");
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [password, setPassword] = useState("");
   const [rol, setRol] = useState("Mesero");
+  const [turno, setTurno] = useState("Mañana");
   const [idSede, setIdSede] = useState("");
   const [estado, setEstado] = useState("Activo");
 
-  // Estado para el Modal de Eliminación
-  const [usuarioAEliminar, setUsuarioAEliminar] = useState<Usuario | null>(
-    null,
-  );
+  // Estado de errores
+  const [errores, setErrores] = useState<any>({});
+  const [usuarioAEliminar, setUsuarioAEliminar] =
+    useState<UsuarioExtendido | null>(null);
 
   const cargarDatos = async () => {
     try {
@@ -49,45 +59,109 @@ export default function GestorUsuarios() {
   const resetearFormulario = () => {
     setModoEdicion(false);
     setIdUsuarioEdicion(null);
+    setDocumento("");
     setNombre("");
     setEmail("");
+    setTelefono("");
     setPassword("");
     setRol("Mesero");
+    setTurno("Mañana");
     setIdSede("");
     setEstado("Activo");
+    setErrores({});
   };
 
-  const iniciarEdicion = (u: Usuario) => {
+  const iniciarEdicion = (u: UsuarioExtendido) => {
     setModoEdicion(true);
     setIdUsuarioEdicion(u.id_usuario);
+    setDocumento(u.documento || "");
     setNombre(u.nombre_completo);
     setEmail(u.email);
-    setPassword("");
+    setTelefono(u.telefono || "");
+    setPassword(""); // Nunca cargamos la contraseña por seguridad
     setRol(u.rol);
+    setTurno(u.turno || "Mañana");
     setIdSede(u.id_sede?.toString() || "");
     setEstado(u.estado || "Activo");
+    setErrores({});
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // 🛡️ MOTOR DE VALIDACIÓN
+  const validarFormulario = () => {
+    const nuevosErrores: any = {};
+
+    // Limpiamos espacios
+    const docTrim = documento.trim();
+    const nomTrim = nombre.trim();
+    const emailTrim = email.trim().toLowerCase();
+    const telTrim = telefono.trim();
+    const passTrim = password.trim();
+
+    // 1. Validar Documento: 6 a 12 dígitos, solo números
+    const docRegex = /^\d{6,12}$/;
+    if (!docRegex.test(docTrim)) {
+      nuevosErrores.documento = "Debe tener entre 6 y 12 dígitos numéricos.";
+    }
+
+    // 2. Validar Nombre: 3 a 60 chars, letras, espacios, apóstrofes, guiones. Cero números.
+    const nombreRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]{3,60}$/;
+    if (!nombreRegex.test(nomTrim)) {
+      nuevosErrores.nombre =
+        "Entre 3 y 60 caracteres. Solo letras. No números ni símbolos raros.";
+    }
+
+    // 3. Validar Email: Formato válido, máximo 100 caracteres
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (emailTrim.length > 100 || !emailRegex.test(emailTrim)) {
+      nuevosErrores.email =
+        "Ingresa un correo electrónico válido (máx 100 caracteres).";
+    }
+
+    // 4. Validar Teléfono: Exactamente 10 dígitos, empieza con 3
+    const telefonoRegex = /^3\d{9}$/;
+    if (!telefonoRegex.test(telTrim)) {
+      nuevosErrores.telefono = "Debe tener 10 dígitos exactos y empezar con 3.";
+    }
+
+    // 5. Validar Contraseña (Solo si está creando, o si está editando y escribió algo)
+    if (!modoEdicion || (modoEdicion && passTrim !== "")) {
+      // Al menos 1 letra, 1 número y entre 8 y 50 caracteres
+      const passRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,50}$/;
+      if (!passRegex.test(passTrim)) {
+        nuevosErrores.password =
+          "Mínimo 8 caracteres. Debe incluir al menos una letra y un número.";
+      }
+    }
+
+    // 6. Validar Sede: Obligatorio
+    if (!idSede) {
+      nuevosErrores.sede = "Debes asignar una sede al empleado.";
+    }
+
+    setErrores(nuevosErrores);
+    return Object.keys(nuevosErrores).length === 0;
   };
 
   const manejarGuardarUsuario = async (evento: React.FormEvent) => {
     evento.preventDefault();
+
+    if (!validarFormulario()) return;
+
     setEstaCargando(true);
 
-    // 🚀 CAMBIO CLAVE: Usamos FormData para que sea compatible con Multer en el backend
     const formData = new FormData();
-    formData.append("nombre_completo", nombre);
-    formData.append("email", email);
+    formData.append("documento", documento.trim());
+    formData.append("nombre_completo", nombre.trim());
+    formData.append("email", email.trim().toLowerCase()); // Guardamos en minúsculas
+    formData.append("telefono", telefono.trim());
     formData.append("rol", rol);
+    formData.append("turno", turno);
     formData.append("estado", estado);
+    formData.append("id_sede", idSede);
 
-    // Solo enviamos la sede si se seleccionó una
-    if (idSede !== "") {
-      formData.append("id_sede", idSede);
-    }
-
-    // Solo enviamos password si el usuario escribió algo
-    if (password) {
-      formData.append("password_hash", password);
+    if (password.trim() !== "") {
+      formData.append("password_hash", password.trim());
     }
 
     try {
@@ -99,7 +173,6 @@ export default function GestorUsuarios() {
 
       const respuesta = await fetch(url, {
         method: metodo,
-        // ⚠️ MUY IMPORTANTE: NO enviamos headers de 'Content-Type' aquí, el navegador lo hace solo con FormData
         body: formData,
       });
 
@@ -108,10 +181,15 @@ export default function GestorUsuarios() {
         cargarDatos();
         alert(modoEdicion ? "✅ Usuario actualizado" : "✅ Usuario creado");
       } else {
-        alert("❌ Error al procesar la solicitud en el servidor");
+        const errorData = await respuesta.json();
+        // Manejar errores de campos únicos desde el backend (ej. correo o cédula repetida)
+        alert(
+          `❌ Error: ${errorData.message || "Revisa los datos (Cédula o Email podrían estar repetidos)"}`,
+        );
       }
     } catch (error) {
       console.error("Error:", error);
+      alert("❌ Error de conexión");
     } finally {
       setEstaCargando(false);
     }
@@ -122,13 +200,13 @@ export default function GestorUsuarios() {
     try {
       const res = await fetch(
         `${API_URL}/usuarios/${usuarioAEliminar.id_usuario}`,
-        {
-          method: "DELETE",
-        },
+        { method: "DELETE" },
       );
       if (res.ok) {
         setUsuarioAEliminar(null);
         cargarDatos();
+      } else {
+        alert("❌ No se puede eliminar. Probablemente tenga ventas asociadas.");
       }
     } catch (error) {
       console.error("Error al eliminar:", error);
@@ -165,6 +243,53 @@ export default function GestorUsuarios() {
           </div>
 
           <form onSubmit={manejarGuardarUsuario} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Documento */}
+              <div>
+                <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
+                  Cédula
+                </label>
+                <input
+                  required
+                  value={documento}
+                  onChange={(e) =>
+                    setDocumento(e.target.value.replace(/\D/g, ""))
+                  }
+                  maxLength={12}
+                  className={`w-full bg-gray-800 border rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 ${errores.documento ? "border-red-500" : "border-gray-700"}`}
+                  placeholder="Ej. 1023456789"
+                />
+                {errores.documento && (
+                  <p className="text-red-500 text-[10px] mt-1">
+                    {errores.documento}
+                  </p>
+                )}
+              </div>
+
+              {/* Teléfono */}
+              <div>
+                <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
+                  Teléfono
+                </label>
+                <input
+                  required
+                  value={telefono}
+                  onChange={(e) =>
+                    setTelefono(e.target.value.replace(/\D/g, ""))
+                  }
+                  maxLength={10}
+                  className={`w-full bg-gray-800 border rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 ${errores.telefono ? "border-red-500" : "border-gray-700"}`}
+                  placeholder="Ej. 3001234567"
+                />
+                {errores.telefono && (
+                  <p className="text-red-500 text-[10px] mt-1">
+                    {errores.telefono}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Nombre Completo */}
             <div>
               <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
                 Nombre Completo
@@ -173,9 +298,17 @@ export default function GestorUsuarios() {
                 required
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
+                className={`w-full bg-gray-800 border rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 ${errores.nombre ? "border-red-500" : "border-gray-700"}`}
+                placeholder="Ej. Juan Pérez"
               />
+              {errores.nombre && (
+                <p className="text-red-500 text-[10px] mt-1">
+                  {errores.nombre}
+                </p>
+              )}
             </div>
+
+            {/* Email */}
             <div>
               <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
                 Email
@@ -185,23 +318,36 @@ export default function GestorUsuarios() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
+                className={`w-full bg-gray-800 border rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 ${errores.email ? "border-red-500" : "border-gray-700"}`}
+                placeholder="usuario@correo.com"
               />
+              {errores.email && (
+                <p className="text-red-500 text-[10px] mt-1">{errores.email}</p>
+              )}
             </div>
+
+            {/* Password */}
             <div>
               <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
                 {modoEdicion ? "Nueva Contraseña (Opcional)" : "Contraseña"}
               </label>
               <input
                 required={!modoEdicion}
-                type="text"
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
+                className={`w-full bg-gray-800 border rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 ${errores.password ? "border-red-500" : "border-gray-700"}`}
+                placeholder="Mínimo 8 caracteres, 1 letra, 1 número"
               />
+              {errores.password && (
+                <p className="text-red-500 text-[10px] mt-1">
+                  {errores.password}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
+              {/* Rol */}
               <div>
                 <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
                   Rol
@@ -209,35 +355,58 @@ export default function GestorUsuarios() {
                 <select
                   value={rol}
                   onChange={(e) => setRol(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
                 >
-                  <option value="Mesero">Mesero</option>
+                  <option value="Admin">Admin</option>
                   <option value="Cajero">Cajero</option>
-                  <option value="Administrador">Administrador</option>
+                  <option value="Mesero">Mesero</option>
                 </select>
               </div>
+
+              {/* Turno */}
               <div>
                 <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
-                  Sede
+                  Turno
                 </label>
                 <select
-                  value={idSede}
-                  onChange={(e) => setIdSede(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
+                  value={turno}
+                  onChange={(e) => setTurno(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
                 >
-                  <option value="">Ninguna</option>
-                  {sedes.map((s) => (
-                    <option key={s.id_sede} value={s.id_sede}>
-                      {s.nombre}
-                    </option>
-                  ))}
+                  <option value="Mañana">Mañana</option>
+                  <option value="Tarde">Tarde</option>
+                  <option value="Noche">Noche</option>
                 </select>
               </div>
             </div>
 
+            {/* Sede */}
+            <div>
+              <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
+                Sede Asignada
+              </label>
+              <select
+                required
+                value={idSede}
+                onChange={(e) => setIdSede(e.target.value)}
+                className={`w-full bg-gray-800 border rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 ${errores.sede ? "border-red-500" : "border-gray-700"}`}
+              >
+                <option value="">-- Seleccionar Sede --</option>
+                {sedes.map((s) => (
+                  <option key={s.id_sede} value={s.id_sede}>
+                    {s.nombre}
+                  </option>
+                ))}
+              </select>
+              {errores.sede && (
+                <p className="text-red-500 text-[10px] mt-1">{errores.sede}</p>
+              )}
+            </div>
+
+            {/* Estado */}
             <div className="bg-gray-950 p-3 rounded-lg border border-gray-800">
               <label className="block text-[10px] text-gray-500 mb-2 uppercase tracking-widest">
-                Estado
+                Estado Operativo
               </label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
@@ -246,6 +415,7 @@ export default function GestorUsuarios() {
                     value="Activo"
                     checked={estado === "Activo"}
                     onChange={(e) => setEstado(e.target.value)}
+                    className="text-blue-500"
                   />{" "}
                   Activo
                 </label>
@@ -255,6 +425,7 @@ export default function GestorUsuarios() {
                     value="Inactivo"
                     checked={estado === "Inactivo"}
                     onChange={(e) => setEstado(e.target.value)}
+                    className="text-red-500"
                   />{" "}
                   Inactivo
                 </label>
@@ -283,7 +454,7 @@ export default function GestorUsuarios() {
             >
               <div className="flex items-start gap-4">
                 <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg overflow-hidden ${u.rol === "Administrador" ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"}`}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg overflow-hidden ${u.rol === "Admin" ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"}`}
                 >
                   {u.avatar_url ? (
                     <img
@@ -292,7 +463,7 @@ export default function GestorUsuarios() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    u.nombre_completo.charAt(0)
+                    u.nombre_completo.charAt(0).toUpperCase()
                   )}
                 </div>
                 <div>
@@ -304,12 +475,24 @@ export default function GestorUsuarios() {
                       {u.estado || "Activo"}
                     </span>
                   </h3>
-                  <p className="text-xs text-gray-500">
-                    {u.email} • <span className="text-blue-400">{u.rol}</span>
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    📍 {u.sedes?.nombre || "Sin sede"}
-                  </p>
+                  <div className="text-xs text-gray-500 space-y-0.5 mt-1">
+                    <p>
+                      📧 {u.email} <span className="mx-2">|</span> 📞{" "}
+                      {u.telefono || "N/A"}
+                    </p>
+                    <p>
+                      🪪 {u.documento || "N/A"} <span className="mx-2">|</span>{" "}
+                      🕒 {u.turno || "N/A"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="text-xs bg-gray-800 text-blue-400 px-2 py-1 rounded">
+                      {u.rol}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      📍 {u.sedes?.nombre || "Sin sede"}
+                    </span>
+                  </div>
                 </div>
               </div>
 
