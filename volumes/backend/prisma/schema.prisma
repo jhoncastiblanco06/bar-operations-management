@@ -164,6 +164,8 @@ model sedes {
   direccion        String?            @db.VarChar(200)
   telefono         String?            @db.VarChar(20)
   ciudad      String?     @db.VarChar(100) 
+  barrio String? @db.VarChar(50)
+  localidad String? @db.VarChar(50)
   estado      String?     @db.VarChar(50) @default("Activa")
   fecha_creacion   DateTime?          @default(now()) @db.Timestamp(6)
   cierres_caja     cierres_caja[]
