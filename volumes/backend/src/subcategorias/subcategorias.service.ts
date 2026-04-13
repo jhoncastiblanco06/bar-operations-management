@@ -1,11 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class SubcategoriasService {
   constructor(private prisma: PrismaService) {}
 
-  // Crear una nueva subcategoría
   async crear(datos: any) {
     return await this.prisma.subcategorias.create({
       data: {
@@ -16,7 +15,6 @@ export class SubcategoriasService {
     });
   }
 
-  // Obtener TODAS las subcategorías (incluyendo el nombre de su categoría padre)
   async obtenerTodas() {
     return await this.prisma.subcategorias.findMany({
       include: {
@@ -34,7 +32,6 @@ export class SubcategoriasService {
     });
   }
 
-  // Actualizar
   async actualizar(id_subcategoria: number, datos: any) {
     return await this.prisma.subcategorias.update({
       where: { id_subcategoria: Number(id_subcategoria) },
@@ -46,11 +43,14 @@ export class SubcategoriasService {
     });
   }
 
-  // Eliminar (Borrado lógico)
+  // 🔥 AQUÍ ESTABA EL ERROR: Ahora sí borra físicamente
   async eliminar(id_subcategoria: number) {
-    return await this.prisma.subcategorias.update({
-      where: { id_subcategoria: Number(id_subcategoria) },
-      data: { estado: 'Inactivo' },
-    });
+    try {
+      return await this.prisma.subcategorias.delete({
+        where: { id_subcategoria: Number(id_subcategoria) },
+      });
+    } catch (error) {
+      throw new BadRequestException('No se pudo eliminar la subcategoría.');
+    }
   }
 }

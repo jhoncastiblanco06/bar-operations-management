@@ -7,21 +7,23 @@ datasource db {
 }
 
 model categorias {
-  id_categoria Int         @id @default(autoincrement())
-  nombre       String      @db.VarChar(100)
-  descripcion  String?
-  estado String @default("Activo")
-  productos    productos[]
+  id_categoria  Int             @id @default(autoincrement())
+  nombre        String          @db.VarChar(100)
+  descripcion   String?
+  estado        String          @default("Activo")
+  
+  productos     productos[]
   subcategorias subcategorias[]
 }
 
 model subcategorias {
-  id_subcategoria Int @id @default(autoincrement())
+  id_subcategoria Int         @id @default(autoincrement())
   nombre          String
   id_categoria    Int
-  estado          String @default("Activo") 
-  categorias categorias @relation(fields: [id_categoria], references: [id_categoria])
-  productos productos[]
+  estado          String      @default("Activo") 
+  
+  categorias      categorias  @relation(fields: [id_categoria], references: [id_categoria], onDelete: Cascade)
+  productos       productos[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -153,9 +155,10 @@ model productos {
   
   detalle_cuentas  detalle_cuentas[]
   inventario_sedes inventario_sedes[]
-  categorias       categorias         @relation(fields: [id_categoria], references: [id_categoria], onDelete: NoAction, onUpdate: NoAction)
-  subcategorias subcategorias? @relation(fields: [id_subcategoria], references: [id_subcategoria])
-  }
+  
+  categorias       categorias         @relation(fields: [id_categoria], references: [id_categoria], onDelete: Cascade)
+  subcategorias    subcategorias?     @relation(fields: [id_subcategoria], references: [id_subcategoria], onDelete: Cascade)
+}
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model sedes {

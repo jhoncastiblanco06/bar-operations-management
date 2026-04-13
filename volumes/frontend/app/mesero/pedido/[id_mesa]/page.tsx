@@ -4,11 +4,25 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { API_URL } from "../../../../utilidades/api";
 
+interface Categoria {
+  id_categoria: number;
+  nombre: string;
+}
+
+interface Subcategoria {
+  id_subcategoria: number;
+  id_categoria: number;
+  nombre: string;
+}
+
 interface ProductoEnStock {
   id_producto: number;
+  id_categoria: number;
+  id_subcategoria: number | null;
   nombre: string;
   precio_venta: number | string;
   stock_actual: number;
+  imagen_url: string | null;
 }
 
 interface ItemPedido {
@@ -31,14 +45,21 @@ export default function TomaDePedidosMesero() {
 
   const [mesaActiva, setMesaActiva] = useState<Mesa | null>(null);
   const [productos, setProductos] = useState<ProductoEnStock[]>([]);
-  const [estaCargando, setEstaCargando] = useState(true);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [todasSubcategorias, setTodasSubcategorias] = useState<Subcategoria[]>(
+    [],
+  );
 
-  // 🚀 NUEVO: Estado para guardar la cuenta histórica
+  const [estaCargando, setEstaCargando] = useState(true);
   const [cuentaExistente, setCuentaExistente] = useState<any>(null);
 
   const [pedidoActual, setPedidoActual] = useState<ItemPedido[]>([]);
   const [procesando, setProcesando] = useState(false);
+
+  // 🚀 ESTADOS DE FILTRO
   const [terminoBusqueda, setTerminoBusqueda] = useState("");
+  const [filtroCategoria, setFiltroCategoria] = useState<string>("");
+  const [filtroSubcategoria, setFiltroSubcategoria] = useState<string>("");
 
   const cargarDatos = async () => {
     try {
@@ -53,26 +74,29 @@ export default function TomaDePedidosMesero() {
         return router.push("/mesero");
       }
 
-      // 1. Cargamos catálogo
-      const resInventario = await fetch(`${API_URL}/inventario/pos/${idSede}`);
-      if (resInventario.ok) setProductos(await resInventario.json());
+      // Carga paralela para mayor velocidad
+      const [resInventario, resMesas, resCuenta, resCategorias, resSubcats] =
+        await Promise.all([
+          fetch(`${API_URL}/inventario/pos/${idSede}`),
+          fetch(`${API_URL}/mesas/sede/${idSede}`),
+          fetch(`${API_URL}/ordenes/mesa/${id_mesa}/activa`),
+          fetch(`${API_URL}/categorias`),
+          fetch(`${API_URL}/subcategorias`),
+        ]);
 
-      // 2. Cargamos detalles de la mesa
-      const resMesas = await fetch(`${API_URL}/mesas/sede/${idSede}`);
+      if (resInventario.ok) setProductos(await resInventario.json());
+      if (resCategorias.ok) setCategorias(await resCategorias.json());
+      if (resSubcats.ok) setTodasSubcategorias(await resSubcats.json());
+
       if (resMesas.ok) {
         const dataMesas = await resMesas.json();
         const mesa = dataMesas.find((m: any) => m.id_mesa === Number(id_mesa));
         if (mesa) setMesaActiva(mesa);
       }
 
-      // 3. 🚀 Cargamos el historial si la mesa ya está abierta
-      const resCuenta = await fetch(
-        `${API_URL}/ordenes/mesa/${id_mesa}/activa`,
-      );
       if (resCuenta.ok) {
         const dataCuenta = await resCuenta.json();
         if (dataCuenta) {
-          // Agrupamos los productos repetidos para que la lista sea más limpia
           const historialAgrupado = agruparDetalles(dataCuenta.detalle_cuentas);
           setCuentaExistente({ ...dataCuenta, historialAgrupado });
         }
@@ -88,7 +112,6 @@ export default function TomaDePedidosMesero() {
     cargarDatos();
   }, [id_mesa, router]);
 
-  // Función auxiliar para agrupar (si pidieron 2 cervezas antes y luego 1, muestra "3 cervezas")
   const agruparDetalles = (detalles: any[]) => {
     const agrupado: Record<number, any> = {};
     detalles.forEach((d) => {
@@ -189,12 +212,10 @@ export default function TomaDePedidosMesero() {
         "Tienes productos sin enviar a la barra. Envíalos o bórralos antes de pedir la cuenta.",
       );
     }
-
     const confirmar = confirm(
       "¿Notificar a la caja para imprimir la cuenta de esta mesa?",
     );
     if (confirmar) {
-      // 🚀 Aquí luego conectaremos con el backend para cambiar el estado a "Por Pagar"
       alert("✅ Cajero notificado. Preparando la cuenta...");
       router.push("/mesero");
     }
@@ -207,11 +228,33 @@ export default function TomaDePedidosMesero() {
       minimumFractionDigits: 0,
     }).format(valor);
 
-  const productosFiltrados = productos.filter((p) =>
-    p.nombre.toLowerCase().includes(terminoBusqueda.toLowerCase()),
-  );
+  // 🚀 MOTOR DE FILTROS PARA EL MESERO
+  let productosAMostrar = [...productos];
 
-  // 🚀 CÁLCULO DE TOTALES: Lo que ya consumieron + lo nuevo
+  if (terminoBusqueda.trim() !== "") {
+    productosAMostrar = productosAMostrar.filter((p) =>
+      p.nombre.toLowerCase().includes(terminoBusqueda.toLowerCase()),
+    );
+  }
+  if (filtroCategoria !== "") {
+    productosAMostrar = productosAMostrar.filter(
+      (p) => String(p.id_categoria) === filtroCategoria,
+    );
+  }
+  if (filtroSubcategoria !== "") {
+    productosAMostrar = productosAMostrar.filter(
+      (p) => String(p.id_subcategoria) === filtroSubcategoria,
+    );
+  }
+
+  const subcategoriasParaFiltro =
+    filtroCategoria !== ""
+      ? todasSubcategorias.filter(
+          (s) => String(s.id_categoria) === filtroCategoria,
+        )
+      : todasSubcategorias;
+
+  // CÁLCULO DE TOTALES
   const totalHistorico = cuentaExistente ? Number(cuentaExistente.total) : 0;
   const totalNuevo = pedidoActual.reduce(
     (acc, item) => acc + item.precio_venta * item.cantidad,
@@ -221,75 +264,143 @@ export default function TomaDePedidosMesero() {
 
   if (estaCargando) {
     return (
-      <div className="p-10 text-center text-purple-400 font-bold animate-pulse">
-        Cargando menú y cuenta...
+      <div className="p-10 text-center text-purple-400 font-bold animate-pulse flex flex-col items-center justify-center h-screen">
+        <span className="text-4xl mb-4">🍹</span>Cargando menú y cuenta...
       </div>
     );
   }
 
   return (
     <div className="flex flex-col lg:flex-row h-[calc(100vh-2rem)] gap-4 pb-10 lg:pb-0">
-      {/* LADO IZQUIERDO: EL CATÁLOGO (Queda exactamente igual) */}
+      {/* LADO IZQUIERDO: EL CATÁLOGO (Ahora con filtros y fotos) */}
       <div className="flex-1 flex flex-col bg-gray-900/50 rounded-3xl border border-gray-800 overflow-hidden shadow-xl">
-        <div className="p-4 border-b border-gray-800 bg-gray-900 flex justify-between items-center gap-4">
-          <button
-            onClick={() => router.push("/mesero")}
-            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-sm font-bold transition-colors"
-          >
-            ⬅ Volver
-          </button>
-          <input
-            type="text"
-            placeholder="🔍 Buscar producto..."
-            value={terminoBusqueda}
-            onChange={(e) => setTerminoBusqueda(e.target.value)}
-            className="flex-1 max-w-sm bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-purple-500"
-          />
+        {/* 🚀 BARRA SUPERIOR DE FILTROS */}
+        <div className="p-4 border-b border-gray-800 bg-gray-900 flex flex-col sm:flex-row gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push("/mesero")}
+              className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-xl text-sm font-bold transition-colors text-white whitespace-nowrap"
+            >
+              ⬅ Volver
+            </button>
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                🔍
+              </span>
+              <input
+                type="text"
+                placeholder="Buscar en menú..."
+                value={terminoBusqueda}
+                onChange={(e) => setTerminoBusqueda(e.target.value)}
+                className="w-full bg-gray-950 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white outline-none focus:border-purple-500 transition-colors"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 flex-1">
+            <select
+              value={filtroCategoria}
+              onChange={(e) => {
+                setFiltroCategoria(e.target.value);
+                setFiltroSubcategoria("");
+              }}
+              className="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-gray-300 outline-none focus:border-blue-500 font-bold"
+            >
+              <option value="">📁 Todas las Categorías</option>
+              {categorias.map((cat) => (
+                <option key={cat.id_categoria} value={cat.id_categoria}>
+                  {cat.nombre}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filtroSubcategoria}
+              onChange={(e) => setFiltroSubcategoria(e.target.value)}
+              disabled={filtroCategoria === ""}
+              className={`flex-1 rounded-xl px-3 py-2.5 text-xs font-bold outline-none transition-colors ${filtroCategoria === "" ? "bg-gray-900 border border-gray-800 text-gray-600 opacity-50" : "bg-gray-950 border border-purple-500/50 text-purple-400"}`}
+            >
+              <option value="">🔎 Subcategorías</option>
+              {subcategoriasParaFiltro.map((sub) => (
+                <option key={sub.id_subcategoria} value={sub.id_subcategoria}>
+                  ↳ {sub.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
+        {/* GRILLA DE PRODUCTOS */}
         <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-gray-800">
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-            {productosFiltrados.map((producto) => {
-              const sinStock = producto.stock_actual <= 0;
-              return (
-                <button
-                  key={producto.id_producto}
-                  disabled={sinStock}
-                  onClick={() => agregarAlPedido(producto)}
-                  className={`p-4 rounded-2xl border flex flex-col items-center text-center transition-transform active:scale-95 relative overflow-hidden ${
-                    sinStock
-                      ? "border-red-900/50 bg-gray-950 opacity-50 cursor-not-allowed"
-                      : "border-gray-800 bg-gray-900 hover:border-purple-500 shadow-lg hover:shadow-purple-500/10"
-                  }`}
-                >
-                  {sinStock && (
-                    <div className="absolute inset-0 bg-red-950/40 flex items-center justify-center backdrop-blur-[1px] z-10">
-                      <span className="bg-red-600 text-white text-[10px] font-black uppercase px-2 py-1 rounded border border-red-500 transform -rotate-12">
-                        Agotado
+          {productosAMostrar.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 opacity-50">
+              <span className="text-6xl mb-4">🤷‍♂️</span>
+              <p className="font-bold">No hay productos en esta vista</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+              {productosAMostrar.map((producto) => {
+                const sinStock = producto.stock_actual <= 0;
+                return (
+                  <button
+                    key={producto.id_producto}
+                    disabled={sinStock}
+                    onClick={() => agregarAlPedido(producto)}
+                    className={`rounded-2xl border flex flex-col text-center transition-transform active:scale-95 relative overflow-hidden h-48 group ${
+                      sinStock
+                        ? "border-red-900/50 bg-gray-950 opacity-50 cursor-not-allowed"
+                        : "border-gray-800 bg-gray-900 hover:border-purple-500 shadow-lg hover:shadow-purple-500/10"
+                    }`}
+                  >
+                    {sinStock && (
+                      <div className="absolute inset-0 bg-red-950/40 flex items-center justify-center backdrop-blur-[1px] z-20">
+                        <span className="bg-red-600 text-white text-[10px] font-black uppercase px-2 py-1 rounded border border-red-500 transform -rotate-12">
+                          Agotado
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Badge de Stock */}
+                    <span className="absolute top-2 left-2 bg-black/80 backdrop-blur-sm text-[10px] text-gray-300 px-2 py-0.5 rounded-full font-bold z-10 border border-gray-700">
+                      {producto.stock_actual} disp.
+                    </span>
+
+                    {/* 🚀 ZONA DE IMAGEN */}
+                    <div className="h-24 w-full bg-gray-950 flex items-center justify-center overflow-hidden border-b border-gray-800/50">
+                      {producto.imagen_url ? (
+                        <img
+                          src={`${API_URL}${producto.imagen_url}`}
+                          alt={producto.nombre}
+                          className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22300%22%20height%3D%22200%22%20viewBox%3D%220%200%20300%20200%22%3E%3Crect%20fill%3D%22%23030712%22%20width%3D%22300%22%20height%3D%22200%22%2F%3E%3Ctext%20fill%3D%22%234b5563%22%20font-family%3D%22sans-serif%22%20font-size%3D%2224%22%20dy%3D%2210.5%22%20font-weight%3D%22bold%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%3E%F0%9F%8D%B8%3C%2Ftext%3E%3C%2Fsvg%3E";
+                          }}
+                        />
+                      ) : (
+                        <span className="text-3xl opacity-30">🍸</span>
+                      )}
+                    </div>
+
+                    {/* INFO DEL PRODUCTO */}
+                    <div className="p-3 flex flex-col flex-1 justify-between w-full bg-gray-900/80">
+                      <span className="text-xs font-bold leading-tight text-gray-200 line-clamp-2">
+                        {producto.nombre}
+                      </span>
+                      <span className="text-purple-400 font-black text-sm">
+                        {formatearDinero(Number(producto.precio_venta))}
                       </span>
                     </div>
-                  )}
-                  <span className="absolute top-2 left-2 bg-black/60 text-[10px] text-gray-300 px-2 py-0.5 rounded-full font-bold">
-                    {producto.stock_actual} disp.
-                  </span>
-                  <div className="w-12 h-12 bg-gray-800 rounded-full mb-3 flex items-center justify-center text-xl shadow-inner border border-gray-700">
-                    🍸
-                  </div>
-                  <span className="text-xs font-bold leading-tight mb-2 text-gray-200">
-                    {producto.nombre}
-                  </span>
-                  <span className="text-purple-400 font-black text-sm mt-auto">
-                    {formatearDinero(Number(producto.precio_venta))}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
       {/* LADO DERECHO: LA LIBRETA DIVIDIDA (Historial + Nuevos) */}
-      <div className="w-full lg:w-96 bg-gray-900 border border-gray-800 rounded-3xl flex flex-col h-[50vh] lg:h-full shrink-0 shadow-2xl overflow-hidden">
+      <div className="w-full lg:w-[400px] bg-gray-900 border border-gray-800 rounded-3xl flex flex-col h-[50vh] lg:h-full shrink-0 shadow-2xl overflow-hidden">
         <div className="p-5 border-b border-gray-800 bg-gray-950 flex justify-between items-center">
           <div>
             <h3 className="font-black text-xl text-white">
@@ -302,7 +413,7 @@ export default function TomaDePedidosMesero() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-900/50 scrollbar-thin scrollbar-thumb-gray-800">
-          {/* 📜 HISTORIAL: Lo que ya consumieron (Solo de lectura) */}
+          {/* HISTORIAL */}
           {cuentaExistente && cuentaExistente.historialAgrupado.length > 0 && (
             <div className="space-y-2">
               <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest border-b border-gray-800 pb-1 mb-2">
@@ -311,7 +422,7 @@ export default function TomaDePedidosMesero() {
               {cuentaExistente.historialAgrupado.map((item: any) => (
                 <div
                   key={`hist-${item.id_producto}`}
-                  className="flex justify-between items-center px-2 py-1 opacity-60"
+                  className="flex justify-between items-center px-2 py-1 opacity-60 bg-gray-950/50 rounded-lg"
                 >
                   <div className="flex gap-2">
                     <span className="text-xs font-bold text-gray-400">
@@ -329,7 +440,7 @@ export default function TomaDePedidosMesero() {
             </div>
           )}
 
-          {/* 📝 NUEVOS: Lo que el mesero está agregando ahora mismo */}
+          {/* NUEVOS (Comanda Actual) */}
           <div>
             {pedidoActual.length > 0 && (
               <h4 className="text-[10px] text-purple-400 font-black uppercase tracking-widest border-b border-purple-500/30 pb-1 mb-3 mt-4">
@@ -340,16 +451,19 @@ export default function TomaDePedidosMesero() {
             {pedidoActual.length === 0 &&
             (!cuentaExistente ||
               cuentaExistente.historialAgrupado.length === 0) ? (
-              <div className="flex flex-col items-center justify-center text-center px-4 py-10 opacity-50">
+              <div className="flex flex-col items-center justify-center text-center px-4 py-10 opacity-50 h-full">
                 <span className="text-5xl mb-4">📝</span>
                 <p className="text-gray-400 font-bold">Libreta vacía</p>
+                <p className="text-[10px] mt-2">
+                  Selecciona productos del menú
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
                 {pedidoActual.map((item) => (
                   <div
                     key={item.id_producto}
-                    className="bg-gray-950 p-3 rounded-2xl border border-purple-500/20 flex justify-between items-center shadow-md"
+                    className="bg-gray-950 p-3 rounded-xl border border-purple-500/30 flex justify-between items-center shadow-md"
                   >
                     <div className="flex-1 pr-3">
                       <p className="text-xs font-bold leading-tight text-white mb-1">
@@ -359,14 +473,14 @@ export default function TomaDePedidosMesero() {
                         {formatearDinero(item.precio_venta * item.cantidad)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3 bg-gray-900 rounded-xl border border-gray-800 px-2 py-1">
+                    <div className="flex items-center gap-2 bg-gray-900 rounded-lg border border-gray-800 p-1">
                       <button
                         onClick={() => quitarDelPedido(item.id_producto)}
-                        className="text-red-400 w-6 h-6 font-bold hover:bg-red-500/20 rounded-lg transition-colors"
+                        className="text-red-400 w-7 h-7 flex items-center justify-center font-bold bg-red-500/10 hover:bg-red-500/30 rounded-md transition-colors"
                       >
                         -
                       </button>
-                      <span className="text-sm font-black w-4 text-center text-white">
+                      <span className="text-xs font-black w-4 text-center text-white">
                         {item.cantidad}
                       </span>
                       <button
@@ -377,7 +491,7 @@ export default function TomaDePedidosMesero() {
                             )!,
                           )
                         }
-                        className="text-green-400 w-6 h-6 font-bold hover:bg-green-500/20 rounded-lg transition-colors"
+                        className="text-green-400 w-7 h-7 flex items-center justify-center font-bold bg-green-500/10 hover:bg-green-500/30 rounded-md transition-colors"
                       >
                         +
                       </button>
@@ -389,7 +503,7 @@ export default function TomaDePedidosMesero() {
           </div>
         </div>
 
-        {/* 💰 Total y Botones de Acción */}
+        {/* TOTALES Y BOTONES */}
         <div className="p-5 bg-gray-950 border-t border-gray-800">
           <div className="flex justify-between items-end mb-4">
             <div className="flex flex-col">
@@ -397,9 +511,9 @@ export default function TomaDePedidosMesero() {
                 Total Consumo:
               </span>
               {cuentaExistente && pedidoActual.length > 0 && (
-                <span className="text-[10px] text-gray-400 mb-1">
-                  Mesa: {formatearDinero(totalHistorico)} + Nuevos:{" "}
-                  {formatearDinero(totalNuevo)}
+                <span className="text-[9px] text-gray-500 mb-1 font-bold">
+                  Mesa: {formatearDinero(totalHistorico)} <br />
+                  Nuevos: {formatearDinero(totalNuevo)}
                 </span>
               )}
             </div>
@@ -408,26 +522,24 @@ export default function TomaDePedidosMesero() {
             </span>
           </div>
 
-          {/* 🚀 AQUÍ ESTÁN TUS DOS BOTONES DIVIDIDOS */}
           <div className="flex gap-3">
-            {/* Botón 1: Enviar a Barra (Guarda y Acumula) - 35% del ancho */}
             <button
               disabled={pedidoActual.length === 0 || procesando}
               onClick={enviarPedidoABarra}
-              className="w-[60%] bg-gray-800 hover:bg-gray-700 disabled:bg-gray-900/50 disabled:text-gray-600 py-4 racking-widest rounded-xl font-black text-white text-xs sm:text-sm transition-all border border-gray-700 disabled:border-transparent active:scale-95 flex flex-col items-center justify-center gap-1"
+              className="w-[60%] bg-gray-800 hover:bg-gray-700 disabled:bg-gray-900/50 disabled:text-gray-600 py-4 rounded-xl font-black text-white text-xs sm:text-sm transition-all border border-gray-700 disabled:border-transparent active:scale-95 flex flex-col items-center justify-center gap-1"
             >
-              <span className="text-[17px] uppercase tracking-wider">
-                {procesando ? "..." : "Agregar al pedido"}
+              <span className="text-sm uppercase tracking-widest">
+                {procesando ? "..." : "Enviar a barra"}
               </span>
             </button>
 
-            {/* Botón 2: Pedir la cuenta (Cierra la orden) - 65% del ancho */}
             <button
-              disabled={!cuentaExistente || pedidoActual.length > 0} // Se desactiva si hay cosas sin enviar o si la mesa es nueva
+              disabled={!cuentaExistente || pedidoActual.length > 0}
               onClick={solicitarCuenta}
-              className="w-[40%] bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-500 py-4 rounded-xl font-black text-white tracking-widest uppercase transition-all shadow-lg shadow-blue-500/20 disabled:shadow-none active:scale-95 flex items-center justify-center gap-2"
+              className="w-[40%] bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-500 py-4 rounded-xl font-black text-white text-[10px] sm:text-xs tracking-widest uppercase transition-all shadow-lg shadow-blue-500/20 disabled:shadow-none active:scale-95 flex flex-col items-center justify-center gap-1"
             >
-              💳 Terminar pedido
+              <span>💳</span>
+              <span>Terminar</span>
             </button>
           </div>
         </div>

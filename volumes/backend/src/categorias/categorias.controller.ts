@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
 import { CategoriasService } from './categorias.service';
 
 @Controller('categorias')
@@ -13,5 +13,10 @@ export class CategoriasController {
   @Get()
   obtenerTodas() {
     return this.categoriasService.obtenerTodas();
+  }
+
+  @Delete(':id')
+  eliminar(@Param('id') id: string) {
+    return this.categoriasService.eliminar(Number(id));
   }
 }

@@ -15,7 +15,6 @@ export class SubcategoriasController {
     return await this.subcategoriasService.obtenerTodas();
   }
 
-  // 🚀 Ruta para el select dependiente en el Frontend
   @Get('categoria/:id_categoria')
   async obtenerPorCategoria(@Param('id_categoria') id_categoria: string) {
     return await this.subcategoriasService.obtenerPorCategoria(Number(id_categoria));

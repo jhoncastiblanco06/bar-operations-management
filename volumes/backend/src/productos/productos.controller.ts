@@ -1,22 +1,10 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Patch,
-  Delete,
-  UseInterceptors,
-  UploadedFile,
-  BadRequestException,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { ProductosService, DatosProducto } from './productos.service';
 import { productos } from '@prisma/client';
 
-// Configuración reutilizable para subir imágenes
 const configuracionMulter = {
   storage: diskStorage({
     destination: './uploads/productos',
@@ -40,10 +28,7 @@ export class ProductosController {
 
   @Post()
   @UseInterceptors(FileInterceptor('imagen', configuracionMulter))
-  crear(
-    @Body() datosProducto: DatosProducto,
-    @UploadedFile() archivo: Express.Multer.File,
-  ): Promise<productos> {
+  crear(@Body() datosProducto: DatosProducto, @UploadedFile() archivo: Express.Multer.File): Promise<productos> {
     const rutaImagen = archivo ? `/uploads/productos/${archivo.filename}` : null;
     return this.productosService.crear(datosProducto, rutaImagen);
   }
@@ -53,19 +38,13 @@ export class ProductosController {
     return this.productosService.obtenerTodos();
   }
 
-  // 🛡️ NUEVO: Ruta para Actualizar (Permite subir nueva imagen)
   @Patch(':id')
   @UseInterceptors(FileInterceptor('imagen', configuracionMulter))
-  actualizar(
-    @Param('id') id: string,
-    @Body() datosProducto: DatosProducto,
-    @UploadedFile() archivo?: Express.Multer.File,
-  ): Promise<productos> {
+  actualizar(@Param('id') id: string, @Body() datosProducto: DatosProducto, @UploadedFile() archivo?: Express.Multer.File): Promise<productos> {
     const rutaImagen = archivo ? `/uploads/productos/${archivo.filename}` : null;
     return this.productosService.actualizar(Number(id), datosProducto, rutaImagen);
   }
 
-  // 🛡️ NUEVO: Ruta para Eliminar
   @Delete(':id')
   eliminar(@Param('id') id: string): Promise<productos> {
     return this.productosService.eliminar(Number(id));
