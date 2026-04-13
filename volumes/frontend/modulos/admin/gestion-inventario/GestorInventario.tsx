@@ -48,7 +48,7 @@ export default function GestorInventario() {
   const [creandoSubcategoria, setCreandoSubcategoria] = useState(false);
   const [nombreNuevaSubcategoria, setNombreNuevaSubcategoria] = useState("");
 
-  // 🚀 NUEVO: Estados para los filtros del Catálogo Visual
+  // Estados para los filtros del Catálogo Visual
   const [filtroCategoria, setFiltroCategoria] = useState<number | null>(null);
   const [filtroSubcategoria, setFiltroSubcategoria] = useState<number | null>(
     null,
@@ -80,17 +80,14 @@ export default function GestorInventario() {
     cargarDatos();
   }, []);
 
-  // 🚀 CORRECCIÓN DEL BUG DE EDICIÓN: Filtramos instantáneamente sin llamar a la API
   const subcategoriasFormulario = idCategoria
     ? todasSubcategorias.filter((s) => s.id_categoria === Number(idCategoria))
     : [];
 
-  // 🚀 NUEVO: Crear Categoría con Validación de Duplicados
   const manejarCrearCategoria = async () => {
     const nombreLimpio = nombreNuevaCategoria.trim();
     if (!nombreLimpio) return;
 
-    // Validación de duplicados
     const existe = categorias.some(
       (c) => c.nombre.toLowerCase() === nombreLimpio.toLowerCase(),
     );
@@ -119,14 +116,31 @@ export default function GestorInventario() {
     }
   };
 
-  // 🚀 NUEVO: Eliminar Categoría
+  // 🚀 MEJORA: Escáner local antes de eliminar Categoría
   const eliminarCategoria = async (id: number) => {
+    // 1. Verificamos si la categoría tiene productos amarrados
+    const tieneProductos = productos.some((p) => Number(p.id_categoria) === id);
+    if (tieneProductos) {
+      return alert(
+        "❌ No puedes eliminar: Hay productos asignados a esta categoría.",
+      );
+    }
+
+    // 2. Verificamos si la categoría tiene subcategorías amarradas
+    const tieneSubcats = todasSubcategorias.some((s) => s.id_categoria === id);
+    if (tieneSubcats) {
+      return alert(
+        "❌ No puedes eliminar: Primero debes borrar las subcategorías que están dentro de esta categoría.",
+      );
+    }
+
     if (
       !window.confirm(
-        "¿Seguro que deseas eliminar esta categoría? (Solo se puede si no tiene productos asociados)",
+        "¿Seguro que deseas eliminar esta categoría permanentemente?",
       )
     )
       return;
+
     try {
       const res = await fetch(`${API_URL}/categorias/${id}`, {
         method: "DELETE",
@@ -136,21 +150,21 @@ export default function GestorInventario() {
         if (filtroCategoria === id) setFiltroCategoria(null);
         cargarDatos();
       } else {
+        const errorData = await res.json().catch(() => ({}));
         alert(
-          "❌ No se puede eliminar. Probablemente tiene productos o subcategorías asociadas.",
+          `❌ Error del servidor: ${errorData.message || "No se pudo eliminar."}`,
         );
       }
     } catch (error) {
       console.error("Error", error);
+      alert("❌ Error de conexión al eliminar.");
     }
   };
 
-  // 🚀 NUEVO: Crear Subcategoría con Validación de Duplicados
   const manejarCrearSubcategoria = async () => {
     const nombreLimpio = nombreNuevaSubcategoria.trim();
     if (!nombreLimpio || !idCategoria) return;
 
-    // Validación de duplicados en la misma categoría
     const existe = subcategoriasFormulario.some(
       (s) => s.nombre.toLowerCase() === nombreLimpio.toLowerCase(),
     );
@@ -180,21 +194,30 @@ export default function GestorInventario() {
     }
   };
 
-  // 🚀 NUEVO: Eliminar Subcategoría
+  // 🚀 MEJORA: Escáner local antes de eliminar Subcategoría
   const eliminarSubcategoria = async (id: number) => {
+    const tieneProductos = productos.some(
+      (p) => Number(p.id_subcategoria) === id,
+    );
+    if (tieneProductos) {
+      return alert(
+        "❌ No puedes eliminar: Hay productos usando esta subcategoría.",
+      );
+    }
+
     if (!window.confirm("¿Seguro que deseas eliminar esta subcategoría?"))
       return;
+
     try {
       const res = await fetch(`${API_URL}/subcategorias/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
         if (idSubcategoria === id.toString()) setIdSubcategoria("");
+        if (filtroSubcategoria === id) setFiltroSubcategoria(null);
         cargarDatos();
       } else {
-        alert(
-          "❌ No se puede eliminar. Probablemente tiene productos asociados.",
-        );
+        alert("❌ Error del servidor al eliminar la subcategoría.");
       }
     } catch (error) {
       console.error("Error", error);
@@ -221,7 +244,6 @@ export default function GestorInventario() {
     setCosto(prod.costo_compra.toString());
     setPrecio(prod.precio_venta.toString());
     setIdCategoria(prod.id_categoria.toString());
-    // Se setea la subcategoría; gracias a que subcategoriasFormulario ahora es síncrono, se reflejará perfectamente.
     setIdSubcategoria(
       prod.id_subcategoria ? prod.id_subcategoria.toString() : "",
     );
@@ -235,7 +257,6 @@ export default function GestorInventario() {
     evento.preventDefault();
     if (!idCategoria) return alert("Por favor, selecciona una categoría.");
 
-    // 🚀 LÍMITE DE COSTOS Y PRECIOS (5 Millones máximo)
     if (Number(costo) > 5000000 || Number(precio) > 5000000) {
       return alert("❌ El costo o el precio no pueden superar los $5,000,000.");
     }
@@ -301,24 +322,22 @@ export default function GestorInventario() {
     }
   };
 
-  // 🚀 LÓGICA DE VISUALIZACIÓN DEL CATÁLOGO
+  // 🚀 CORRECCIÓN DE LÓGICA DE FILTRADO (Forzando tipos numéricos)
   const productosOrdenados = [...productos].sort(
     (a, b) => b.id_producto - a.id_producto,
   );
   let productosAMostrar = [];
 
   if (filtroCategoria === null) {
-    // Si no hay filtro, mostramos solo los últimos 6
     productosAMostrar = productosOrdenados.slice(0, 6);
   } else {
-    // Si hay categoría, filtramos
     productosAMostrar = productosOrdenados.filter(
-      (p) => p.id_categoria === filtroCategoria,
+      (p) => Number(p.id_categoria) === filtroCategoria,
     );
-    // Si además hay subcategoría, filtramos más
+
     if (filtroSubcategoria !== null) {
       productosAMostrar = productosAMostrar.filter(
-        (p) => p.id_subcategoria === filtroSubcategoria,
+        (p) => Number(p.id_subcategoria) === filtroSubcategoria,
       );
     }
   }
@@ -394,7 +413,6 @@ export default function GestorInventario() {
               />
             </div>
 
-            {/* ZONA DE CATEGORÍAS */}
             <div className="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-3">
               <div>
                 <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">
@@ -406,7 +424,7 @@ export default function GestorInventario() {
                       required
                       value={idCategoria}
                       onChange={(e) => setIdCategoria(e.target.value)}
-                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
+                      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 text-sm"
                     >
                       <option value="">-- Seleccionar --</option>
                       {categorias.map((cat) => (
@@ -415,7 +433,6 @@ export default function GestorInventario() {
                         </option>
                       ))}
                     </select>
-                    {/* Botón Eliminar Categoría actual (solo si hay una seleccionada) */}
                     {idCategoria && (
                       <button
                         type="button"
@@ -441,7 +458,7 @@ export default function GestorInventario() {
                       autoFocus
                       value={nombreNuevaCategoria}
                       onChange={(e) => setNombreNuevaCategoria(e.target.value)}
-                      className="flex-1 bg-gray-800 border border-blue-500 rounded-lg px-3 py-2 text-white outline-none"
+                      className="flex-1 bg-gray-800 border border-blue-500 rounded-lg px-3 py-2 text-white outline-none text-sm"
                       placeholder="Nueva Categoría"
                     />
                     <button
@@ -462,7 +479,6 @@ export default function GestorInventario() {
                 )}
               </div>
 
-              {/* 🚀 SUBCATEGORÍA AHORA SIEMPRE VISIBLE */}
               <div className="pt-3 border-t border-gray-800/50">
                 <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">
                   Subcategoría{" "}
@@ -475,7 +491,7 @@ export default function GestorInventario() {
                     <select
                       value={idSubcategoria}
                       onChange={(e) => setIdSubcategoria(e.target.value)}
-                      disabled={!idCategoria} // Se deshabilita si no hay categoría
+                      disabled={!idCategoria}
                       className="flex-1 bg-gray-800/50 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 text-sm disabled:opacity-50"
                     >
                       <option value="">
@@ -587,72 +603,79 @@ export default function GestorInventario() {
           </form>
         </div>
 
-        {/* 🚀 ZONA DEL CATÁLOGO CON FILTROS */}
+        {/* 🚀 NUEVA UI DE FILTROS Y CATÁLOGO */}
         <div className="lg:col-span-2 flex flex-col h-full">
-          {/* Navegación de Filtros */}
-          <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-800 mb-6">
-            <h3 className="text-sm text-gray-400 uppercase tracking-wider mb-3">
-              Filtrar por Categoría
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => {
-                  setFiltroCategoria(null);
+          <div className="bg-gray-900/50 p-5 rounded-2xl border border-gray-800 mb-6 flex flex-col sm:flex-row items-center gap-4 shadow-lg">
+            <div className="w-full sm:w-1/2">
+              <label className="block text-[10px] text-gray-400 uppercase tracking-widest mb-2 font-bold">
+                Filtro de Categoría
+              </label>
+              <select
+                value={filtroCategoria === null ? "" : filtroCategoria}
+                onChange={(e) => {
+                  setFiltroCategoria(
+                    e.target.value === "" ? null : Number(e.target.value),
+                  );
                   setFiltroSubcategoria(null);
                 }}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${filtroCategoria === null ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500 text-sm font-medium transition-colors"
               >
-                Últimos Agregados
-              </button>
-              {categorias.map((cat) => (
-                <button
-                  key={cat.id_categoria}
-                  onClick={() => {
-                    setFiltroCategoria(cat.id_categoria);
-                    setFiltroSubcategoria(null);
-                  }}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${filtroCategoria === cat.id_categoria ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
-                >
-                  {cat.nombre}
-                </button>
-              ))}
+                <option value="">🌟 Últimos Agregados (Vista General)</option>
+                {categorias.map((cat) => (
+                  <option key={cat.id_categoria} value={cat.id_categoria}>
+                    📁 {cat.nombre}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Filtros de Subcategoría (Si hay una categoría seleccionada) */}
             {filtroCategoria !== null &&
               subcategoriasFiltroVista.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-800 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setFiltroSubcategoria(null)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filtroSubcategoria === null ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+                <div className="w-full sm:w-1/2 animate-in fade-in slide-in-from-left-4 duration-300">
+                  <label className="block text-[10px] text-purple-400 uppercase tracking-widest mb-2 font-bold">
+                    Filtro de Subcategoría
+                  </label>
+                  <select
+                    value={
+                      filtroSubcategoria === null ? "" : filtroSubcategoria
+                    }
+                    onChange={(e) =>
+                      setFiltroSubcategoria(
+                        e.target.value === "" ? null : Number(e.target.value),
+                      )
+                    }
+                    className="w-full bg-gray-800 border border-purple-500/50 rounded-lg px-4 py-3 text-white outline-none focus:border-purple-500 text-sm font-medium transition-colors"
                   >
-                    Todas las subcategorías
-                  </button>
-                  {subcategoriasFiltroVista.map((sub) => (
-                    <button
-                      key={sub.id_subcategoria}
-                      onClick={() => setFiltroSubcategoria(sub.id_subcategoria)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filtroSubcategoria === sub.id_subcategoria ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
-                    >
-                      {sub.nombre}
-                    </button>
-                  ))}
+                    <option value="">🔎 Todas las subcategorías</option>
+                    {subcategoriasFiltroVista.map((sub) => (
+                      <option
+                        key={sub.id_subcategoria}
+                        value={sub.id_subcategoria}
+                      >
+                        ↳ {sub.nombre}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
           </div>
 
-          {/* Grilla de Productos */}
           {productosAMostrar.length === 0 ? (
             <div className="bg-gray-900/50 p-10 rounded-2xl border border-gray-800 border-dashed text-center text-gray-500 flex flex-col items-center justify-center flex-1 min-h-[300px]">
-              <span className="text-4xl mb-4">🔍</span>
-              <p>No se encontraron productos en esta vista.</p>
+              <span className="text-5xl mb-4 opacity-50">🔍</span>
+              <p className="font-medium text-lg text-gray-400">
+                No hay productos en esta vista.
+              </p>
+              <p className="text-sm mt-1">
+                Selecciona otra categoría o agrega un nuevo producto.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
               {productosAMostrar.map((producto) => (
                 <div
                   key={producto.id_producto}
-                  className="bg-gray-800/80 rounded-2xl border border-gray-700 flex flex-col hover:border-gray-500 transition-all group overflow-hidden"
+                  className="bg-gray-800/80 rounded-2xl border border-gray-700 flex flex-col hover:border-gray-500 transition-all group overflow-hidden shadow-md hover:shadow-xl"
                 >
                   <div className="h-40 w-full bg-gray-900 relative flex items-center justify-center overflow-hidden border-b border-gray-700">
                     <div
@@ -740,7 +763,6 @@ export default function GestorInventario() {
         </div>
       </div>
 
-      {/* Modal de Eliminación de Producto */}
       {productoAEliminar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-gray-900 border border-gray-700 rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center">
