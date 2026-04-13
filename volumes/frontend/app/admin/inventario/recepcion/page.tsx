@@ -9,3 +9,4 @@ export default function PaginaRecepcionAdmin() {
     </div>
   );
 }
+75.0;
