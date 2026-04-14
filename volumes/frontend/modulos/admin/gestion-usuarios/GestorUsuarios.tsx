@@ -38,11 +38,8 @@ export default function GestorUsuarios() {
         fetch(`${API_URL}/usuarios`),
         fetch(`${API_URL}/sedes`),
       ]);
-      const dataUsers = await resUsuarios.json();
-      const dataSedes = await resSedes.json();
-
-      setUsuarios(Array.isArray(dataUsers) ? dataUsers : []);
-      setSedes(Array.isArray(dataSedes) ? dataSedes : []);
+      setUsuarios(await resUsuarios.json());
+      setSedes(await resSedes.json());
     } catch (error) {
       console.error("Error al cargar datos:", error);
     }
@@ -83,7 +80,7 @@ export default function GestorUsuarios() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // 🛡️ MOTOR DE VALIDACIÓN INTELIGENTE (Detecta si es Admin)
+  // 🛡️ MOTOR DE VALIDACIÓN (Ahora con Escáner Antiduplicados)
   const validarFormulario = () => {
     const nuevosErrores: any = {};
 
@@ -93,50 +90,67 @@ export default function GestorUsuarios() {
     const telTrim = telefono.trim();
     const passTrim = password.trim();
 
-    const esAdmin = rol === "Admin";
+    const esAdmin = rol === "Administrador";
 
-    if (esAdmin) {
-      // 🔥 MODO ADMIN: Cero reglas estrictas, solo evitamos que la Base de Datos explote
-      if (!nomTrim)
-        nuevosErrores.nombre = "El nombre es necesario para la base de datos.";
-      if (!emailTrim)
-        nuevosErrores.email = "El correo es necesario para iniciar sesión.";
-      if (!modoEdicion && !passTrim)
-        nuevosErrores.password = "Necesita una contraseña inicial.";
-    } else {
-      // 🔒 MODO EMPLEADO (Cajero/Mesero): Reglas estrictas aplicadas
+    // 🚀 ESCÁNER ANTIDUPLICADOS LOCALES
+    // Verificamos si ya existe alguien con esos datos (ignorando al usuario actual si estamos editando)
+    const docDuplicado = usuarios.some(
+      (u) => u.documento === docTrim && u.id_usuario !== idUsuarioEdicion,
+    );
+    const emailDuplicado = usuarios.some(
+      (u) =>
+        u.email.toLowerCase() === emailTrim &&
+        u.id_usuario !== idUsuarioEdicion,
+    );
+    const telDuplicado = usuarios.some(
+      (u) => u.telefono === telTrim && u.id_usuario !== idUsuarioEdicion,
+    );
 
-      const docRegex = /^\d{6,12}$/;
-      if (!docRegex.test(docTrim)) {
-        nuevosErrores.documento = "Debe tener entre 6 y 12 dígitos numéricos.";
-      }
+    // 1. Cédula obligatoria para todos y ÚNICA
+    const docRegex = /^\d{6,12}$/;
+    if (!docRegex.test(docTrim)) {
+      nuevosErrores.documento = "Debe tener entre 6 y 12 dígitos numéricos.";
+    } else if (docDuplicado) {
+      nuevosErrores.documento =
+        "❌ Esta cédula ya está registrada en otro usuario.";
+    }
 
-      const nombreRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]{3,60}$/;
-      if (!nombreRegex.test(nomTrim)) {
-        nuevosErrores.nombre = "Entre 3 y 60 caracteres. Solo letras.";
-      }
+    // 2. Teléfono obligatorio para todos y ÚNICO
+    const telefonoRegex = /^3\d{9}$/;
+    if (!telefonoRegex.test(telTrim)) {
+      nuevosErrores.telefono = "Debe tener 10 dígitos exactos y empezar con 3.";
+    } else if (telDuplicado) {
+      nuevosErrores.telefono =
+        "❌ Este teléfono ya está registrado en otro usuario.";
+    }
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (emailTrim.length > 100 || !emailRegex.test(emailTrim)) {
-        nuevosErrores.email = "Ingresa un correo electrónico válido.";
-      }
+    // 3. Nombre
+    const nombreRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]{3,60}$/;
+    if (!nombreRegex.test(nomTrim)) {
+      nuevosErrores.nombre = "Entre 3 y 60 caracteres. Solo letras.";
+    }
 
-      const telefonoRegex = /^3\d{9}$/;
-      if (!telefonoRegex.test(telTrim)) {
-        nuevosErrores.telefono =
-          "Debe tener 10 dígitos exactos y empezar con 3.";
-      }
+    // 4. Email ÚNICO
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (emailTrim.length > 100 || !emailRegex.test(emailTrim)) {
+      nuevosErrores.email = "Ingresa un correo electrónico válido.";
+    } else if (emailDuplicado) {
+      nuevosErrores.email = "❌ Este correo electrónico ya está en uso.";
+    }
 
-      if (!modoEdicion || (modoEdicion && passTrim !== "")) {
+    // 5. Sede
+    if (!esAdmin && !idSede) {
+      nuevosErrores.sede = "Debes asignar una sede al empleado.";
+    }
+
+    // 6. Contraseña
+    if (!modoEdicion && !passTrim) {
+      nuevosErrores.password = "Necesita una contraseña inicial.";
+    } else if (passTrim !== "") {
+      if (!esAdmin) {
         const passRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,50}$/;
-        if (!passRegex.test(passTrim)) {
-          nuevosErrores.password =
-            "Mínimo 8 caracteres, al menos una letra y un número.";
-        }
-      }
-
-      if (!idSede) {
-        nuevosErrores.sede = "Debes asignar una sede al empleado.";
+        if (!passRegex.test(passTrim))
+          nuevosErrores.password = "Mínimo 8 caracteres, 1 letra y 1 número.";
       }
     }
 
@@ -146,15 +160,12 @@ export default function GestorUsuarios() {
 
   const manejarGuardarUsuario = async (evento: React.FormEvent) => {
     evento.preventDefault();
-
     if (!validarFormulario()) return;
-
     setEstaCargando(true);
 
     const formData = new FormData();
-    const esAdmin = rol === "Admin";
+    const esAdmin = rol === "Administrador";
 
-    // Si es admin y los deja vacíos, enviamos string vacío para que el backend lo limpie
     formData.append("documento", documento.trim());
     formData.append("nombre_completo", nombre.trim());
     formData.append("email", email.trim().toLowerCase());
@@ -162,28 +173,17 @@ export default function GestorUsuarios() {
     formData.append("rol", rol);
     formData.append("estado", estado);
 
-    // El admin no envía turno, los empleados sí
-    if (!esAdmin) {
-      formData.append("turno", turno);
-    }
-
-    if (idSede !== "") {
-      formData.append("id_sede", idSede);
-    }
-
-    if (password.trim() !== "") {
+    if (!esAdmin) formData.append("turno", turno);
+    if (idSede !== "") formData.append("id_sede", idSede);
+    if (password.trim() !== "")
       formData.append("password_hash", password.trim());
-    }
 
     try {
       const url = modoEdicion
         ? `${API_URL}/usuarios/${idUsuarioEdicion}`
         : `${API_URL}/usuarios`;
-
-      const metodo = modoEdicion ? "PATCH" : "POST";
-
       const respuesta = await fetch(url, {
-        method: metodo,
+        method: modoEdicion ? "PATCH" : "POST",
         body: formData,
       });
 
@@ -193,8 +193,9 @@ export default function GestorUsuarios() {
         alert(modoEdicion ? "✅ Usuario actualizado" : "✅ Usuario creado");
       } else {
         const errorData = await respuesta.json();
+        // Muro de contención del Backend por si alguien logra saltarse el Frontend
         alert(
-          `❌ Error: ${errorData.message || "Revisa los datos. Email o Cédula duplicados."}`,
+          `❌ La Base de Datos rechazó la solicitud: Cédula, Email o Teléfono ya existen.`,
         );
       }
     } catch (error) {
@@ -219,12 +220,11 @@ export default function GestorUsuarios() {
         alert("❌ No se puede eliminar. Probablemente tenga ventas asociadas.");
       }
     } catch (error) {
-      console.error("Error al eliminar:", error);
+      console.error("Error:", error);
     }
   };
 
-  // Variable de ayuda visual
-  const esAdmin = rol === "Admin";
+  const esAdmin = rol === "Administrador";
 
   return (
     <div className="space-y-8 relative">
@@ -256,7 +256,6 @@ export default function GestorUsuarios() {
           </div>
 
           <form onSubmit={manejarGuardarUsuario} className="space-y-4">
-            {/* ROL (Lo ponemos arriba para que el formulario mute enseguida) */}
             <div>
               <label className="block text-[10px] text-purple-400 font-bold mb-1 uppercase tracking-widest">
                 Rol del Usuario
@@ -266,70 +265,59 @@ export default function GestorUsuarios() {
                 onChange={(e) => setRol(e.target.value)}
                 className="w-full bg-gray-950 border border-purple-500/50 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500"
               >
-                <option value="Admin">Administrador (Modo Libre)</option>
-                <option value="Cajero">Cajero (Restringido)</option>
-                <option value="Mesero">Mesero (Restringido)</option>
+                <option value="Administrador">Administrador</option>
+                <option value="Cajero">Cajero</option>
+                <option value="Mesero">Mesero</option>
               </select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              {/* Documento */}
               <div>
                 <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
-                  Cédula {!esAdmin && <span className="text-red-500">*</span>}
+                  Cédula *
                 </label>
                 <input
-                  required={!esAdmin}
+                  required
                   value={documento}
                   onChange={(e) =>
-                    setDocumento(
-                      esAdmin
-                        ? e.target.value
-                        : e.target.value.replace(/\D/g, ""),
-                    )
+                    setDocumento(e.target.value.replace(/\D/g, ""))
                   }
-                  maxLength={esAdmin ? undefined : 12}
+                  maxLength={12}
                   className={`w-full bg-gray-800 border rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 ${errores.documento ? "border-red-500" : "border-gray-700"}`}
-                  placeholder={esAdmin ? "Opcional" : "Ej. 1023456789"}
+                  placeholder="Ej. 1023456789"
                 />
                 {errores.documento && (
-                  <p className="text-red-500 text-[10px] mt-1">
+                  <p className="text-red-500 text-[10px] mt-1 font-bold animate-pulse">
                     {errores.documento}
                   </p>
                 )}
               </div>
 
-              {/* Teléfono */}
               <div>
                 <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
-                  Teléfono {!esAdmin && <span className="text-red-500">*</span>}
+                  Teléfono *
                 </label>
                 <input
-                  required={!esAdmin}
+                  required
                   value={telefono}
                   onChange={(e) =>
-                    setTelefono(
-                      esAdmin
-                        ? e.target.value
-                        : e.target.value.replace(/\D/g, ""),
-                    )
+                    setTelefono(e.target.value.replace(/\D/g, ""))
                   }
-                  maxLength={esAdmin ? undefined : 10}
+                  maxLength={10}
                   className={`w-full bg-gray-800 border rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 ${errores.telefono ? "border-red-500" : "border-gray-700"}`}
-                  placeholder={esAdmin ? "Opcional" : "Ej. 3001234567"}
+                  placeholder="Ej. 3001234567"
                 />
                 {errores.telefono && (
-                  <p className="text-red-500 text-[10px] mt-1">
+                  <p className="text-red-500 text-[10px] mt-1 font-bold animate-pulse">
                     {errores.telefono}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Nombre Completo */}
             <div>
               <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
-                Nombre Completo <span className="text-red-500">*</span>
+                Nombre Completo *
               </label>
               <input
                 required
@@ -345,10 +333,9 @@ export default function GestorUsuarios() {
               )}
             </div>
 
-            {/* Email */}
             <div>
               <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
-                Email <span className="text-red-500">*</span>
+                Email *
               </label>
               <input
                 required
@@ -359,11 +346,12 @@ export default function GestorUsuarios() {
                 placeholder="usuario@correo.com"
               />
               {errores.email && (
-                <p className="text-red-500 text-[10px] mt-1">{errores.email}</p>
+                <p className="text-red-500 text-[10px] mt-1 font-bold animate-pulse">
+                  {errores.email}
+                </p>
               )}
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
                 {modoEdicion ? "Nueva Contraseña (Opcional)" : "Contraseña"}{" "}
@@ -378,7 +366,7 @@ export default function GestorUsuarios() {
                 placeholder={
                   esAdmin
                     ? "Cualquier contraseña"
-                    : "Mínimo 8 caracteres, 1 letra, 1 número"
+                    : "Mín 8 chars, 1 letra, 1 número"
                 }
               />
               {errores.password && (
@@ -389,11 +377,9 @@ export default function GestorUsuarios() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              {/* Sede */}
               <div>
                 <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
-                  Sede Asignada{" "}
-                  {!esAdmin && <span className="text-red-500">*</span>}
+                  Sede {!esAdmin && <span className="text-red-500">*</span>}
                 </label>
                 <select
                   required={!esAdmin}
@@ -417,7 +403,6 @@ export default function GestorUsuarios() {
                 )}
               </div>
 
-              {/* Turno (Se oculta si es Admin) */}
               {!esAdmin && (
                 <div>
                   <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
@@ -436,7 +421,6 @@ export default function GestorUsuarios() {
               )}
             </div>
 
-            {/* Estado */}
             <div className="bg-gray-950 p-3 rounded-lg border border-gray-800">
               <label className="block text-[10px] text-gray-500 mb-2 uppercase tracking-widest">
                 Estado Operativo
@@ -487,7 +471,7 @@ export default function GestorUsuarios() {
             >
               <div className="flex items-start gap-4">
                 <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg overflow-hidden ${u.rol === "Admin" ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"}`}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg overflow-hidden ${u.rol === "Administrador" ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"}`}
                 >
                   {u.avatar_url ? (
                     <img
@@ -515,14 +499,14 @@ export default function GestorUsuarios() {
                     </p>
                     <p>
                       🪪 {u.documento || "N/A"}{" "}
-                      {u.rol !== "Admin" && (
+                      {u.rol !== "Administrador" && (
                         <span className="mx-2">| 🕒 {u.turno || "N/A"}</span>
                       )}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 mt-2">
                     <span
-                      className={`text-xs px-2 py-1 rounded ${u.rol === "Admin" ? "bg-purple-900/50 text-purple-400 border border-purple-500/30" : "bg-gray-800 text-blue-400"}`}
+                      className={`text-xs px-2 py-1 rounded ${u.rol === "Administrador" ? "bg-purple-900/50 text-purple-400 border border-purple-500/30" : "bg-gray-800 text-blue-400"}`}
                     >
                       {u.rol}
                     </span>
@@ -552,7 +536,7 @@ export default function GestorUsuarios() {
         </div>
       </div>
 
-      {/* Modal de Confirmación */}
+      {/* Modal Confirmación */}
       {usuarioAEliminar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-gray-900 border border-gray-800 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl">
@@ -560,14 +544,7 @@ export default function GestorUsuarios() {
             <h3 className="text-xl font-bold text-white mb-2">
               ¿Eliminar Usuario?
             </h3>
-            <p className="text-gray-400 text-sm mb-6">
-              Estás por eliminar a{" "}
-              <span className="text-white font-semibold">
-                {usuarioAEliminar.nombre_completo}
-              </span>
-              . Esta acción no se puede deshacer.
-            </p>
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setUsuarioAEliminar(null)}
                 className="flex-1 py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-700 transition-colors"

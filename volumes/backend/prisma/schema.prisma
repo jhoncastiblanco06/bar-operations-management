@@ -8,7 +8,7 @@ datasource db {
 
 model categorias {
   id_categoria  Int             @id @default(autoincrement())
-  nombre        String          @db.VarChar(100)
+  nombre        String          @unique @db.VarChar(100) // 🔒 BLINDADO
   descripcion   String?
   estado        String          @default("Activo")
   
@@ -24,6 +24,8 @@ model subcategorias {
   
   categorias      categorias  @relation(fields: [id_categoria], references: [id_categoria], onDelete: Cascade)
   productos       productos[]
+
+  @@unique([nombre, id_categoria]) // 🔒 BLINDADO: Nombre único por cada categoría padre
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -88,18 +90,18 @@ model historial_ingresos_stock {
 }
 
 model inventario_sedes {
-  id_inventario            Int                        @id @default(autoincrement())
+  id_inventario            Int                      @id @default(autoincrement())
   id_sede                  Int
   id_producto              Int
-  stock_actual             Int?                       @default(0)
-  stock_minimo             Int?                       @default(5)
-  ultima_actualizacion     DateTime?                  @default(now()) @db.Timestamp(6)
+  stock_actual             Int?                     @default(0)
+  stock_minimo             Int?                     @default(5)
+  ultima_actualizacion     DateTime?                @default(now()) @db.Timestamp(6)
   historial_ingresos_stock historial_ingresos_stock[]
-  productos                productos                  @relation(fields: [id_producto], references: [id_producto], onDelete: NoAction, onUpdate: NoAction)
-  sedes                    sedes                      @relation(fields: [id_sede], references: [id_sede], onDelete: NoAction, onUpdate: NoAction)
+  productos                productos                @relation(fields: [id_producto], references: [id_producto], onDelete: NoAction, onUpdate: NoAction)
+  sedes                    sedes                    @relation(fields: [id_sede], references: [id_sede], onDelete: NoAction, onUpdate: NoAction)
   movimientos_inventario   movimientos_inventario[]
 
-  @@unique([id_sede, id_producto])
+  @@unique([id_sede, id_producto]) // 🔒 YA ESTABA BLINDADO
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -111,6 +113,8 @@ model mesas {
   estado               String?   @default("Disponible") @db.VarChar(20)
   cuentas              cuentas[]
   sedes                sedes     @relation(fields: [id_sede], references: [id_sede], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id_sede, nombre_identificador]) // 🔒 BLINDADO: No pueden haber dos "Mesa 1" en la misma sede
 }
 
 model movimientos_inventario {
@@ -131,7 +135,7 @@ model pagos_facturas {
   id_pago         Int       @id @default(autoincrement())
   id_cuenta       Int
   id_cajero       Int
-  numero_factura  String    @unique @db.VarChar(50)
+  numero_factura  String    @unique @db.VarChar(50) // 🔒 YA ESTABA BLINDADO
   metodo_pago     String    @db.VarChar(50)
   monto_recibido  Decimal   @db.Decimal(10, 2)
   cambio_devuelto Decimal?  @default(0.00) @db.Decimal(10, 2)
@@ -146,8 +150,8 @@ model productos {
   id_producto      Int                @id @default(autoincrement())
   id_categoria     Int
   id_subcategoria  Int?
-  codigo_sku       String?            @unique @db.VarChar(50)
-  nombre           String             @db.VarChar(150)
+  codigo_sku       String?            @unique @db.VarChar(50) // 🔒 YA ESTABA BLINDADO
+  nombre           String             @unique @db.VarChar(150) // 🔒 BLINDADO
   costo_compra     Decimal            @db.Decimal(10, 2)
   precio_venta     Decimal            @db.Decimal(10, 2)
   estado           String?            @default("Activo") @db.VarChar(20)
@@ -162,20 +166,20 @@ model productos {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model sedes {
-  id_sede          Int                @id @default(autoincrement())
-  nombre           String             @db.VarChar(100)
-  direccion        String?            @db.VarChar(200)
-  telefono         String?            @db.VarChar(20)
-  ciudad      String?     @db.VarChar(100) 
-  barrio String? @db.VarChar(50)
-  localidad String? @db.VarChar(50)
-  estado      String?     @db.VarChar(50) @default("Activa")
-  fecha_creacion   DateTime?          @default(now()) @db.Timestamp(6)
-  cierres_caja     cierres_caja[]
-  cuentas          cuentas[]
+  id_sede        Int                @id @default(autoincrement())
+  nombre         String             @unique @db.VarChar(100) // 🔒 BLINDADO
+  direccion      String?            @db.VarChar(200)
+  telefono       String?            @db.VarChar(20)
+  ciudad         String?            @db.VarChar(100) 
+  barrio         String?            @db.VarChar(50)
+  localidad      String?            @db.VarChar(50)
+  estado         String?            @db.VarChar(50) @default("Activa")
+  fecha_creacion DateTime?          @default(now()) @db.Timestamp(6)
+  cierres_caja   cierres_caja[]
+  cuentas        cuentas[]
   inventario_sedes inventario_sedes[]
-  mesas            mesas[]
-  usuarios         usuarios[]
+  mesas          mesas[]
+  usuarios       usuarios[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -190,7 +194,7 @@ model spatial_ref_sys {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model tipos_movimiento {
   id_tipo_mov            Int                      @id @default(autoincrement())
-  nombre                 String                   @db.VarChar(50)
+  nombre                 String                   @unique @db.VarChar(50) // 🔒 BLINDADO
   naturaleza             String                   @db.VarChar(20)
   movimientos_inventario movimientos_inventario[]
 }
@@ -198,10 +202,10 @@ model tipos_movimiento {
 model usuarios {
   id_usuario               Int                      @id @default(autoincrement())
   id_sede                  Int?
-  documento                String?                  @unique @db.VarChar(20)
+  documento                String?                  @unique @db.VarChar(20) // 🔒 YA ESTABA BLINDADO
   nombre_completo          String                   @db.VarChar(150)
-  email                    String                   @unique @db.VarChar(100)
-  telefono                 String?                  @db.VarChar(20)
+  email                    String                   @unique @db.VarChar(100) // 🔒 YA ESTABA BLINDADO
+  telefono                 String?                  @unique @db.VarChar(20) // 🔒 BLINDADO AHORA SÍ
   password_hash            String                   @db.VarChar(255)
   rol                      String                   @db.VarChar(20)
   turno                    String?                  @db.VarChar(20)

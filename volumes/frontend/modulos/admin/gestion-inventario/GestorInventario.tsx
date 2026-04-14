@@ -91,19 +91,31 @@ export default function GestorInventario() {
     }
   };
 
-  // --- GESTIÓN DE CATEGORÍAS ---
+  // --- 🛡️ GESTIÓN DE CATEGORÍAS (CON ESCÁNER ANTIDUPLICADOS) ---
   const manejarCrearCategoria = async () => {
-    if (!nombreNuevaCategoria.trim()) return;
+    const nomTrim = nombreNuevaCategoria.trim();
+    if (!nomTrim) return;
+
+    // Validación Local: Evitar duplicados
+    if (
+      categorias.some((c) => c.nombre.toLowerCase() === nomTrim.toLowerCase())
+    ) {
+      return alert(`❌ La categoría "${nomTrim}" ya existe.`);
+    }
+
     try {
       const res = await fetch(`${API_URL}/categorias`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: nombreNuevaCategoria.trim() }),
+        body: JSON.stringify({ nombre: nomTrim }),
       });
       if (res.ok) {
         await cargarDatos();
         setCreandoCategoria(false);
         setNombreNuevaCategoria("");
+      } else {
+        const err = await res.json();
+        alert(`❌ Error del servidor: ${err.message}`);
       }
     } catch (error) {
       console.error(error);
@@ -127,25 +139,39 @@ export default function GestorInventario() {
         if (filtroCategoria === String(idCat)) setFiltroCategoria("");
         await cargarDatos();
       } else {
-        alert(
-          "❌ Error: Asegúrate de que el backend ya tenga los cambios de la Base de Datos (onDelete: Cascade).",
-        );
+        const err = await res.json();
+        alert(`❌ Error: ${err.message}`);
       }
     } catch (error) {
       console.error(error);
     }
   };
 
-  // --- GESTIÓN DE SUBCATEGORÍAS ---
+  // --- 🛡️ GESTIÓN DE SUBCATEGORÍAS (CON ESCÁNER ANTIDUPLICADOS) ---
   const manejarCrearSubcategoria = async () => {
-    if (!nombreNuevaSubcategoria.trim() || idCategoria === "")
+    const nomTrim = nombreNuevaSubcategoria.trim();
+    if (!nomTrim || idCategoria === "")
       return alert("Selecciona una Categoría Padre.");
+
+    // Validación Local: Evitar duplicados en la misma categoría
+    if (
+      todasSubcategorias.some(
+        (s) =>
+          s.nombre.toLowerCase() === nomTrim.toLowerCase() &&
+          String(s.id_categoria) === idCategoria,
+      )
+    ) {
+      return alert(
+        `❌ La subcategoría "${nomTrim}" ya existe dentro de esta categoría.`,
+      );
+    }
+
     try {
       const res = await fetch(`${API_URL}/subcategorias`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nombre: nombreNuevaSubcategoria.trim(),
+          nombre: nomTrim,
           id_categoria: Number(idCategoria),
         }),
       });
@@ -153,6 +179,9 @@ export default function GestorInventario() {
         await cargarDatos();
         setCreandoSubcategoria(false);
         setNombreNuevaSubcategoria("");
+      } else {
+        const err = await res.json();
+        alert(`❌ Error del servidor: ${err.message}`);
       }
     } catch (error) {
       console.error(error);
@@ -176,14 +205,15 @@ export default function GestorInventario() {
         if (filtroSubcategoria === String(idSub)) setFiltroSubcategoria("");
         await cargarDatos();
       } else {
-        alert("❌ Error al eliminar subcategoría.");
+        const err = await res.json();
+        alert(`❌ Error al eliminar subcategoría: ${err.message}`);
       }
     } catch (error) {
       console.error(error);
     }
   };
 
-  // --- GESTIÓN DE PRODUCTOS ---
+  // --- 🛡️ GESTIÓN DE PRODUCTOS (CON ESCÁNER ANTIDUPLICADOS) ---
   const resetearFormulario = () => {
     setModoEdicion(false);
     setIdProductoEdicion(null);
@@ -213,15 +243,26 @@ export default function GestorInventario() {
 
   const manejarGuardarProducto = async (evento: React.FormEvent) => {
     evento.preventDefault();
+    const nomTrim = nombre.trim();
+
     if (idCategoria === "")
       return alert("Por favor, selecciona una categoría.");
     if (Number(costo) > 5000000 || Number(precio) > 5000000)
       return alert("❌ Costo o precio muy altos.");
 
+    // Validación Local: Evitar productos duplicados (ignorando al que editamos)
+    const duplicado = productos.some(
+      (p) =>
+        p.nombre.toLowerCase() === nomTrim.toLowerCase() &&
+        p.id_producto !== idProductoEdicion,
+    );
+    if (duplicado)
+      return alert(`❌ Ya existe un producto registrado como "${nomTrim}".`);
+
     setEstaCargando(true);
     try {
       const datosFormulario = new FormData();
-      datosFormulario.append("nombre", nombre);
+      datosFormulario.append("nombre", nomTrim);
       datosFormulario.append("costo_compra", costo);
       datosFormulario.append("precio_venta", precio);
       datosFormulario.append("id_categoria", idCategoria);
@@ -241,7 +282,8 @@ export default function GestorInventario() {
         resetearFormulario();
         await cargarDatos();
       } else {
-        alert("❌ Error al guardar producto.");
+        const err = await respuesta.json();
+        alert(`❌ Error al guardar: ${err.message}`);
       }
     } catch (error) {
       console.error(error);
@@ -599,7 +641,7 @@ export default function GestorInventario() {
                   value={filtroCategoria}
                   onChange={(e) => {
                     setFiltroCategoria(e.target.value);
-                    setFiltroSubcategoria(""); // Resetea subcategoría
+                    setFiltroSubcategoria(""); // Resetea subcategoría al cambiar categoría
                   }}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500 text-sm transition-colors"
                 >
