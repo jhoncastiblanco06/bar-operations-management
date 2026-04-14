@@ -168,8 +168,8 @@ model productos {
 model sedes {
   id_sede        Int                @id @default(autoincrement())
   nombre         String             @unique @db.VarChar(100) // 🔒 BLINDADO
-  direccion      String?            @db.VarChar(200)
-  telefono       String?            @db.VarChar(20)
+  direccion      String?            @unique @db.VarChar(200) // 🔒 AHORA ES ÚNICO
+  telefono       String?            @unique @db.VarChar(20)
   ciudad         String?            @db.VarChar(100) 
   barrio         String?            @db.VarChar(50)
   localidad      String?            @db.VarChar(50)

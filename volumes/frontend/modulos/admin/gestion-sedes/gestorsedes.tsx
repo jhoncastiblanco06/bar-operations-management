@@ -9,8 +9,8 @@ interface Sede {
   direccion: string;
   telefono: string;
   ciudad: string;
-  barrio: string; // 🚀 NUEVO
-  localidad: string; // 🚀 NUEVO
+  barrio: string;
+  localidad: string;
   estado: string;
 }
 
@@ -25,13 +25,11 @@ export default function GestorSedes() {
   const [direccion, setDireccion] = useState("");
   const [telefono, setTelefono] = useState("");
   const [ciudad, setCiudad] = useState("");
-  const [barrio, setBarrio] = useState(""); // 🚀 NUEVO
-  const [localidad, setLocalidad] = useState(""); // 🚀 NUEVO
+  const [barrio, setBarrio] = useState("");
+  const [localidad, setLocalidad] = useState("");
   const [estadoSede, setEstadoSede] = useState("Activa");
 
-  // Estado para guardar los mensajes de error de validación
   const [errores, setErrores] = useState<any>({});
-
   const [sedeAEliminar, setSedeAEliminar] = useState<Sede | null>(null);
 
   const cargarSedes = async () => {
@@ -75,66 +73,90 @@ export default function GestorSedes() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // 🛡️ MOTOR DE VALIDACIÓN ESTRICTA
+  // 🛡️ MOTOR DE VALIDACIÓN ESTRICTO Y ANTIDUPLICADOS TOTAL
   const validarFormulario = () => {
     const nuevosErrores: any = {};
 
-    // 1. Validar Teléfono: Exactamente 10 dígitos, empieza por 3.
-    const telefonoRegex = /^3\d{9}$/;
-    if (!telefonoRegex.test(telefono)) {
-      nuevosErrores.telefono = "Debe tener 10 dígitos exactos y empezar con 3.";
-    }
+    const nomTrim = nombre.trim();
+    const telTrim = telefono.trim();
+    const dirTrim = direccion.trim();
 
-    // 2. Validar Dirección: 10 a 80 caracteres. Letras, números y # - .
-    const direccionRegex = /^[a-zA-Z0-9\s#\-\.,áéíóúÁÉÍÓÚñÑ]+$/;
-    if (direccion.length < 10 || direccion.length > 80) {
-      nuevosErrores.direccion = "Debe tener entre 10 y 80 caracteres.";
-    } else if (!direccionRegex.test(direccion)) {
+    // 🔍 ESCÁNER ANTIDUPLICADOS: Verifica Nombre, Teléfono y Dirección
+    const nombreDuplicado = sedes.some(
+      (s) =>
+        s.nombre.toLowerCase() === nomTrim.toLowerCase() &&
+        s.id_sede !== idSedeEdicion,
+    );
+    const telefonoDuplicado = sedes.some(
+      (s) => s.telefono === telTrim && s.id_sede !== idSedeEdicion,
+    );
+    const direccionDuplicada = sedes.some(
+      (s) =>
+        s.direccion?.toLowerCase() === dirTrim.toLowerCase() &&
+        s.id_sede !== idSedeEdicion,
+    );
+
+    if (nombreDuplicado)
+      nuevosErrores.nombre = "❌ Ya existe una sede con este nombre.";
+    if (telefonoDuplicado)
+      nuevosErrores.telefono = "❌ Este teléfono ya pertenece a otra sede.";
+    if (direccionDuplicada)
       nuevosErrores.direccion =
-        "Contiene caracteres no permitidos. Usa letras, números, espacios y # - .";
-    }
+        "❌ Esta dirección ya está registrada en otra sede.";
 
-    // 3. Validar Nombre: 3 a 60 caracteres, máximo 5 números.
-    const numerosEnNombre = (nombre.match(/\d/g) || []).length;
-    if (nombre.length < 3 || nombre.length > 60) {
-      nuevosErrores.nombre = "Debe tener entre 3 y 60 caracteres.";
+    // Validar Nombre
+    const numerosEnNombre = (nomTrim.match(/\d/g) || []).length;
+    if (nomTrim.length < 3 || nomTrim.length > 60) {
+      nuevosErrores.nombre =
+        nuevosErrores.nombre || "Debe tener entre 3 y 60 caracteres.";
     } else if (numerosEnNombre > 5) {
-      nuevosErrores.nombre = "No se permiten más de 5 números en el nombre.";
+      nuevosErrores.nombre =
+        nuevosErrores.nombre || "No se permiten más de 5 números en el nombre.";
     }
 
-    // 4. Validar Ciudad, Barrio y Localidad: 3 a 50 caracteres.
-    if (ciudad.length < 3 || ciudad.length > 50) {
+    // Validar Teléfono
+    const telefonoRegex = /^3\d{9}$/;
+    if (!telefonoRegex.test(telTrim)) {
+      nuevosErrores.telefono =
+        nuevosErrores.telefono ||
+        "Debe tener 10 dígitos exactos y empezar con 3.";
+    }
+
+    // Validar Dirección
+    const direccionRegex = /^[a-zA-Z0-9\s#\-\.,áéíóúÁÉÍÓÚñÑ]+$/;
+    if (dirTrim.length < 10 || dirTrim.length > 80) {
+      nuevosErrores.direccion =
+        nuevosErrores.direccion || "Debe tener entre 10 y 80 caracteres.";
+    } else if (!direccionRegex.test(dirTrim)) {
+      nuevosErrores.direccion =
+        nuevosErrores.direccion || "Usa letras, números, espacios y # - .";
+    }
+
+    // Validar Geografía
+    if (ciudad.length < 3 || ciudad.length > 50)
       nuevosErrores.ciudad = "Debe tener entre 3 y 50 caracteres.";
-    }
-    if (barrio.length < 3 || barrio.length > 50) {
+    if (barrio.length < 3 || barrio.length > 50)
       nuevosErrores.barrio = "Debe tener entre 3 y 50 caracteres.";
-    }
-    if (localidad.length < 3 || localidad.length > 50) {
+    if (localidad.length < 3 || localidad.length > 50)
       nuevosErrores.localidad = "Debe tener entre 3 y 50 caracteres.";
-    }
 
     setErrores(nuevosErrores);
-    // Si no hay llaves en el objeto de errores, el formulario es válido
     return Object.keys(nuevosErrores).length === 0;
   };
 
   const manejarGuardarSede = async (evento: React.FormEvent) => {
     evento.preventDefault();
-
-    // Si la validación falla, detenemos el guardado
-    if (!validarFormulario()) {
-      return;
-    }
+    if (!validarFormulario()) return;
 
     setEstaCargando(true);
 
     const datosAEnviar = {
-      nombre,
-      direccion,
-      telefono,
-      ciudad,
-      barrio,
-      localidad,
+      nombre: nombre.trim(),
+      direccion: direccion.trim(),
+      telefono: telefono.trim(),
+      ciudad: ciudad.trim(),
+      barrio: barrio.trim(),
+      localidad: localidad.trim(),
       estado: estadoSede,
     };
 
@@ -156,11 +178,17 @@ export default function GestorSedes() {
       if (respuesta.ok) {
         resetearFormulario();
         cargarSedes();
+        alert(
+          modoEdicion ? "✅ Sede actualizada" : "✅ Sede creada exitosamente",
+        );
       } else {
-        alert("Error al guardar la sede en la base de datos.");
+        const errorData = await respuesta.json();
+        // Atrapa el error global de la Base de Datos si alguien se salta el Frontend
+        alert(`❌ ${errorData.message}`);
       }
     } catch (error) {
       console.error("Error:", error);
+      alert("❌ Error de conexión al guardar.");
     } finally {
       setEstaCargando(false);
     }
@@ -180,7 +208,7 @@ export default function GestorSedes() {
         cargarSedes();
       } else {
         alert(
-          "No se puede eliminar la sede. Es posible que tenga usuarios o mesas asignadas.",
+          "❌ No se puede eliminar la sede. Es posible que tenga usuarios o mesas asignadas.",
         );
       }
     } catch (error) {
@@ -198,7 +226,7 @@ export default function GestorSedes() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Formulario (Columna 1) */}
+        {/* --- FORMULARIO --- */}
         <div className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 h-fit lg:col-span-1 shadow-lg">
           <div className="flex justify-between items-center mb-6">
             <h2
@@ -231,7 +259,7 @@ export default function GestorSedes() {
                 placeholder="Ej. Sede Norte"
               />
               {errores.nombre && (
-                <p className="text-red-500 text-[10px] mt-1 font-bold">
+                <p className="text-red-500 text-[10px] mt-1 font-bold animate-pulse">
                   {errores.nombre}
                 </p>
               )}
@@ -246,13 +274,13 @@ export default function GestorSedes() {
                 required
                 type="text"
                 value={telefono}
-                onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ""))} // Fuerzo a que solo escriba números
-                maxLength={10} // Límite visual de 10 caracteres
+                onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ""))}
+                maxLength={10}
                 className={`w-full bg-gray-800 border rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 ${errores.telefono ? "border-red-500" : "border-gray-700"}`}
                 placeholder="Ej. 3001234567"
               />
               {errores.telefono && (
-                <p className="text-red-500 text-[10px] mt-1 font-bold">
+                <p className="text-red-500 text-[10px] mt-1 font-bold animate-pulse">
                   {errores.telefono}
                 </p>
               )}
@@ -271,18 +299,17 @@ export default function GestorSedes() {
                 placeholder="Calle 123 #45-67"
               />
               {errores.direccion && (
-                <p className="text-red-500 text-[10px] mt-1 font-bold">
+                <p className="text-red-500 text-[10px] mt-1 font-bold animate-pulse">
                   {errores.direccion}
                 </p>
               )}
             </div>
 
-            {/* Ubicación Geográfica: Ciudad, Localidad, Barrio */}
+            {/* Ubicación Geográfica */}
             <div className="bg-gray-950/50 p-3 rounded-xl border border-gray-800 space-y-3">
               <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">
                 Ubicación
               </p>
-
               <div>
                 <label className="block text-xs text-gray-400 mb-1">
                   Ciudad
@@ -300,7 +327,6 @@ export default function GestorSedes() {
                   </p>
                 )}
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">
@@ -339,7 +365,7 @@ export default function GestorSedes() {
               </div>
             </div>
 
-            {/* Estado */}
+            {/* ESTADO OPERATIVO */}
             <div className="bg-gray-950 p-3 rounded-xl border border-gray-800">
               <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">
                 Estado Operativo
@@ -361,8 +387,10 @@ export default function GestorSedes() {
                     type="radio"
                     name="estado"
                     value="Inactiva"
-                    checked={estadoSede === "Inactiva"}
-                    onChange={(e) => setEstadoSede(e.target.value)}
+                    checked={
+                      estadoSede === "Inactiva" || estadoSede === "Inactivo"
+                    }
+                    onChange={(e) => setEstadoSede("Inactiva")}
                     className="w-4 h-4 text-red-600 bg-gray-800 border-gray-700 focus:ring-red-600"
                   />
                   <span className="text-sm text-gray-300">🔴 Inactiva</span>
@@ -383,7 +411,7 @@ export default function GestorSedes() {
           </form>
         </div>
 
-        {/* Lista de Sedes (Columnas 2 y 3) */}
+        {/* --- LISTA DE SEDES --- */}
         <div className="lg:col-span-2 space-y-4">
           {sedes.length === 0 ? (
             <div className="bg-gray-900/50 p-10 rounded-2xl border border-gray-800 border-dashed text-center text-gray-500">
@@ -397,6 +425,7 @@ export default function GestorSedes() {
                   key={sede.id_sede}
                   className="bg-gray-800/80 p-5 rounded-2xl border border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:border-gray-500 transition-all group relative"
                 >
+                  {/* Info de la sede */}
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-1">
                       <h3 className="text-lg font-bold text-white truncate">
@@ -409,7 +438,6 @@ export default function GestorSedes() {
                       </span>
                     </div>
 
-                    {/* Detalles de Ubicación Agrupados */}
                     <div className="mt-2 space-y-1">
                       <p className="text-sm text-blue-400 font-medium flex items-center gap-1">
                         <span>📍</span> {sede.ciudad}{" "}
@@ -447,7 +475,7 @@ export default function GestorSedes() {
         </div>
       </div>
 
-      {/* POP-UP (MODAL) DE ELIMINACIÓN */}
+      {/* --- MODAL ELIMINAR --- */}
       {sedeAEliminar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-fade-in-up">

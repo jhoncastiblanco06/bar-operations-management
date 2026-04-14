@@ -19,7 +19,6 @@ export default function PaginaLogin() {
     setError(null);
 
     try {
-      // Reemplazamos el 'localhost:7086' por nuestra variable API_URL
       const respuesta = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
@@ -34,20 +33,65 @@ export default function PaginaLogin() {
       const datos = await respuesta.json();
 
       if (respuesta.ok) {
-        console.log("Usuario logueado:", datos.usuario);
+        const usuario = datos.usuario;
 
-        // Guardamos al usuario en la memoria del navegador
-        localStorage.setItem("usuario_bar", JSON.stringify(datos.usuario));
+        // 🛡️ REGLA 1: Bloqueo de Usuario Inactivo
+        if (usuario.estado === "Inactivo" || usuario.estado === "Inactiva") {
+          setEstaCargando(false);
+          return setError(
+            "❌ Tu cuenta está desactivada. Habla con el administrador.",
+          );
+        }
 
-        // Redirección inteligente basada en el rol del usuario
-        if (datos.usuario.rol === "Administrador") {
+        // 🛡️ REGLA 2: Bloqueo de Sede Inactiva
+        // Verifica si el usuario tiene una sede asignada y si esta se encuentra inactiva
+        if (
+          usuario.sedes &&
+          (usuario.sedes.estado === "Inactiva" ||
+            usuario.sedes.estado === "Inactivo")
+        ) {
+          setEstaCargando(false);
+          return setError(
+            "❌ La sede a la que estás asignado está inactiva. Acceso denegado.",
+          );
+        }
+
+        // 🛡️ REGLA 3: Control de Turnos (Solo aplica para Cajeros y Meseros)
+        if (usuario.rol !== "Administrador" && usuario.rol !== "Admin") {
+          const horaActual = new Date().getHours(); // Retorna la hora local (0 - 23)
+          let accesoPermitido = false;
+
+          if (usuario.turno === "Mañana" && horaActual >= 6 && horaActual < 14)
+            accesoPermitido = true;
+          if (usuario.turno === "Tarde" && horaActual >= 14 && horaActual < 22)
+            accesoPermitido = true;
+          if (usuario.turno === "Noche" && (horaActual >= 22 || horaActual < 6))
+            accesoPermitido = true;
+
+          // Si tiene un turno asignado pero está fuera de su horario, lo bloqueamos
+          if (usuario.turno && !accesoPermitido) {
+            setEstaCargando(false);
+            return setError(
+              `❌ Estás fuera de horario. Tu turno es: ${usuario.turno}`,
+            );
+          }
+        }
+
+        // Si pasa todos los filtros de seguridad, lo guardamos en memoria
+        console.log("Usuario logueado:", usuario);
+        localStorage.setItem("usuario_bar", JSON.stringify(usuario));
+
+        // 🚀 REDIRECCIÓN INTELIGENTE (Corregido el bug del Admin)
+        const rol = usuario.rol;
+
+        if (rol === "Administrador" || rol === "Admin") {
           enrutador.push("/admin");
-        } else if (datos.usuario.rol === "Cajero") {
+        } else if (rol === "Cajero") {
           enrutador.push("/cajero");
-        } else if (datos.usuario.rol === "Mesero") {
+        } else if (rol === "Mesero") {
           enrutador.push("/mesero");
         } else {
-          enrutador.push("/"); // Seguridad por si falla el rol
+          enrutador.push("/"); // Seguridad por si tiene un rol desconocido
         }
       } else {
         setError(datos.message || "Error al iniciar sesión");
@@ -61,12 +105,11 @@ export default function PaginaLogin() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative bg-gray-950 px-4 sm:px-6 lg:px-8 bg-[url('/images/backgroud.png')] bg-cover bg-center bg-no-repeat bg-blend-overlay">
-      {/* Luces de fondo (Glows) para mantener estética */}
+      {/* Luces de fondo (Glows) */}
       <div className="absolute top-1/4 left-1/4 w-[250px] md:w-[500px] h-[250px] md:h-[500px] bg-blue-600/10 rounded-full blur-[80px] md:blur-[120px] -z-10"></div>
 
       {/* Tarjeta de Login Responsiva */}
       <div className="bg-gray-900/80 backdrop-blur-xl p-6 sm:p-10 rounded-2xl shadow-2xl w-full max-w-[400px] border border-gray-800 transition-all duration-300">
-        {/* Header del Formulario */}
         <div className="text-center mb-8">
           <Link
             href="/"
@@ -83,10 +126,9 @@ export default function PaginaLogin() {
           </p>
         </div>
 
-        {/* Formulario */}
         <form onSubmit={manejarInicioSesion} className="space-y-5">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm p-3 rounded-lg text-center animate-pulse">
+            <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm p-3 rounded-lg text-center animate-pulse font-medium">
               {error}
             </div>
           )}
@@ -136,7 +178,6 @@ export default function PaginaLogin() {
           </div>
         </form>
 
-        {/* Footer del card */}
         <div className="mt-8 text-center">
           <Link
             href="/"
