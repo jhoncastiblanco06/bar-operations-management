@@ -75,7 +75,6 @@ export default function GestorInventario() {
     cargarDatos();
   }, []);
 
-  // --- LOGICA DE FORMULARIO ---
   const subcategoriasDelFormulario =
     idCategoria !== ""
       ? todasSubcategorias.filter((s) => String(s.id_categoria) === idCategoria)
@@ -91,12 +90,11 @@ export default function GestorInventario() {
     }
   };
 
-  // --- 🛡️ GESTIÓN DE CATEGORÍAS (CON ESCÁNER ANTIDUPLICADOS) ---
+  // --- 🛡️ GESTIÓN DE CATEGORÍAS ---
   const manejarCrearCategoria = async () => {
     const nomTrim = nombreNuevaCategoria.trim();
     if (!nomTrim) return;
 
-    // Validación Local: Evitar duplicados
     if (
       categorias.some((c) => c.nombre.toLowerCase() === nomTrim.toLowerCase())
     ) {
@@ -115,7 +113,7 @@ export default function GestorInventario() {
         setNombreNuevaCategoria("");
       } else {
         const err = await res.json();
-        alert(`❌ Error del servidor: ${err.message}`);
+        alert(`❌ Error: ${err.message}`);
       }
     } catch (error) {
       console.error(error);
@@ -125,7 +123,7 @@ export default function GestorInventario() {
   const eliminarCategoria = async (idCat: number) => {
     if (
       !window.confirm(
-        "¿Seguro que deseas eliminar esta categoría? Todo lo que esté adentro (subcategorías y productos) también desaparecerá.",
+        "¿Seguro que deseas eliminar esta categoría? Todo lo que esté adentro también desaparecerá.",
       )
     )
       return;
@@ -139,21 +137,19 @@ export default function GestorInventario() {
         if (filtroCategoria === String(idCat)) setFiltroCategoria("");
         await cargarDatos();
       } else {
-        const err = await res.json();
-        alert(`❌ Error: ${err.message}`);
+        alert(`❌ Error al eliminar la categoría.`);
       }
     } catch (error) {
       console.error(error);
     }
   };
 
-  // --- 🛡️ GESTIÓN DE SUBCATEGORÍAS (CON ESCÁNER ANTIDUPLICADOS) ---
+  // --- 🛡️ GESTIÓN DE SUBCATEGORÍAS ---
   const manejarCrearSubcategoria = async () => {
     const nomTrim = nombreNuevaSubcategoria.trim();
     if (!nomTrim || idCategoria === "")
       return alert("Selecciona una Categoría Padre.");
 
-    // Validación Local: Evitar duplicados en la misma categoría
     if (
       todasSubcategorias.some(
         (s) =>
@@ -181,7 +177,7 @@ export default function GestorInventario() {
         setNombreNuevaSubcategoria("");
       } else {
         const err = await res.json();
-        alert(`❌ Error del servidor: ${err.message}`);
+        alert(`❌ Error: ${err.message}`);
       }
     } catch (error) {
       console.error(error);
@@ -205,15 +201,14 @@ export default function GestorInventario() {
         if (filtroSubcategoria === String(idSub)) setFiltroSubcategoria("");
         await cargarDatos();
       } else {
-        const err = await res.json();
-        alert(`❌ Error al eliminar subcategoría: ${err.message}`);
+        alert(`❌ Error al eliminar subcategoría.`);
       }
     } catch (error) {
       console.error(error);
     }
   };
 
-  // --- 🛡️ GESTIÓN DE PRODUCTOS (CON ESCÁNER ANTIDUPLICADOS) ---
+  // --- 🛡️ GESTIÓN DE PRODUCTOS ---
   const resetearFormulario = () => {
     setModoEdicion(false);
     setIdProductoEdicion(null);
@@ -244,13 +239,22 @@ export default function GestorInventario() {
   const manejarGuardarProducto = async (evento: React.FormEvent) => {
     evento.preventDefault();
     const nomTrim = nombre.trim();
+    const numCosto = Number(costo);
+    const numPrecio = Number(precio);
 
     if (idCategoria === "")
       return alert("Por favor, selecciona una categoría.");
-    if (Number(costo) > 5000000 || Number(precio) > 5000000)
-      return alert("❌ Costo o precio muy altos.");
 
-    // Validación Local: Evitar productos duplicados (ignorando al que editamos)
+    // 🛡️ ESCÁNER FINANCIERO LÓGICO
+    if (numCosto > 5000000 || numPrecio > 5000000)
+      return alert("❌ Costo o precio superan los 5 millones.");
+    if (numCosto <= 0 || numPrecio <= 0)
+      return alert("❌ Los valores deben ser mayores a cero.");
+    if (numPrecio <= numCosto)
+      return alert(
+        `❌ ILÓGICO: El Precio de Venta ($${numPrecio}) no puede ser menor o igual al Costo ($${numCosto}). ¡Estás perdiendo dinero!`,
+      );
+
     const duplicado = productos.some(
       (p) =>
         p.nombre.toLowerCase() === nomTrim.toLowerCase() &&
@@ -266,6 +270,7 @@ export default function GestorInventario() {
       datosFormulario.append("costo_compra", costo);
       datosFormulario.append("precio_venta", precio);
       datosFormulario.append("id_categoria", idCategoria);
+
       if (idSubcategoria !== "")
         datosFormulario.append("id_subcategoria", idSubcategoria);
       if (imagen) datosFormulario.append("imagen", imagen);
@@ -317,28 +322,21 @@ export default function GestorInventario() {
     (a, b) => b.id_producto - a.id_producto,
   );
 
-  // 1. Filtrar por Búsqueda de Texto
   if (busqueda.trim() !== "") {
     productosAMostrar = productosAMostrar.filter((p) =>
       p.nombre.toLowerCase().includes(busqueda.toLowerCase()),
     );
   }
-
-  // 2. Filtrar por Categoría
   if (filtroCategoria !== "") {
     productosAMostrar = productosAMostrar.filter(
       (p) => String(p.id_categoria) === filtroCategoria,
     );
   }
-
-  // 3. Filtrar por Subcategoría
   if (filtroSubcategoria !== "") {
     productosAMostrar = productosAMostrar.filter(
       (p) => String(p.id_subcategoria) === filtroSubcategoria,
     );
   }
-
-  // 4. Si no hay filtros activos ni búsqueda, mostrar los 6 más recientes
   if (
     filtroCategoria === "" &&
     filtroSubcategoria === "" &&
@@ -368,9 +366,9 @@ export default function GestorInventario() {
         <div className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 h-fit lg:col-span-1 shadow-xl">
           <div className="flex justify-between items-center mb-6">
             <h2
-              className={`text-xl font-semibold ${modoEdicion ? "text-purple-400" : "text-blue-400"}`}
+              className={`text-xl font-semibold ${modoEdicion ? "text-purple-400" : "text-purple-400"}`}
             >
-              {modoEdicion ? "✏️ Editar Producto" : "📦 Nuevo Producto"}
+              {modoEdicion ? "Editar Producto" : "Nuevo Producto"}
             </h2>
             {modoEdicion && (
               <button
@@ -422,7 +420,6 @@ export default function GestorInventario() {
             </div>
 
             <div className="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-4">
-              {/* CATEGORÍA */}
               <div>
                 <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">
                   Categoría Principal *
@@ -435,7 +432,7 @@ export default function GestorInventario() {
                       onChange={(e) => setIdCategoria(e.target.value)}
                       className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 text-sm"
                     >
-                      <option value="">-- Seleccionar --</option>
+                      <option value="">- Seleccionar -</option>
                       {categorias.map((cat) => (
                         <option key={cat.id_categoria} value={cat.id_categoria}>
                           {cat.nombre}
@@ -471,14 +468,14 @@ export default function GestorInventario() {
                     <button
                       type="button"
                       onClick={manejarCrearCategoria}
-                      className="bg-green-600 text-white px-3 rounded-lg font-bold"
+                      className="bg-green-500 text-white px-3 rounded-lg font-bold"
                     >
                       ✓
                     </button>
                     <button
                       type="button"
                       onClick={() => setCreandoCategoria(false)}
-                      className="bg-red-500 text-white px-3 rounded-lg font-bold"
+                      className="bg-blue-600  text-white px-3 rounded-lg font-bold"
                     >
                       ✕
                     </button>
@@ -486,15 +483,11 @@ export default function GestorInventario() {
                 )}
               </div>
 
-              {/* SUBCATEGORÍA CON BLOQUEO */}
               <div className="pt-3 border-t border-gray-800/50">
                 <label
-                  className={`block text-xs mb-2 uppercase tracking-wider font-bold transition-colors ${idCategoria === "" ? "text-gray-600" : "text-purple-400"}`}
+                  className={`block text-xs mb-2 uppercase tracking-wider transition-colors ${idCategoria === "" ? "text-gray-600" : "text-gray-400"}`}
                 >
                   Subcategoría{" "}
-                  <span className="text-[9px] text-gray-500 lowercase font-normal">
-                    (Opcional)
-                  </span>
                 </label>
                 {!creandoSubcategoria ? (
                   <div className="flex gap-2">
@@ -504,19 +497,19 @@ export default function GestorInventario() {
                         manejarCambioSubcategoriaFormulario(e.target.value)
                       }
                       disabled={idCategoria === ""}
-                      className={`flex-1 border rounded-lg px-3 py-2 text-white outline-none text-sm transition-all ${idCategoria === "" ? "bg-gray-900 border-gray-800 text-gray-500 cursor-not-allowed" : "bg-gray-800 border-purple-500/30 focus:border-purple-500"}`}
+                      className={`flex-1 border rounded-lg px-3 py-2 text-white outline-none text-sm transition-all ${idCategoria === "" ? "bg-gray-900 border-gray-800 text-gray-800 cursor-not-allowed" : "bg-gray-800 border-blue-500/30 focus:border-blue-500"}`}
                     >
                       <option value="">
                         {idCategoria === ""
-                          ? "Bloqueado (Selecciona Categoría)"
-                          : "-- Sin Subcategoría --"}
+                          ? "(Selecciona Categoría)"
+                          : "- Seleccionar -"}
                       </option>
                       {subcategoriasDelFormulario.map((sub) => (
                         <option
                           key={sub.id_subcategoria}
                           value={sub.id_subcategoria}
                         >
-                          ↳ {sub.nombre}
+                          {sub.nombre}
                         </option>
                       ))}
                     </select>
@@ -535,7 +528,7 @@ export default function GestorInventario() {
                       type="button"
                       disabled={idCategoria === ""}
                       onClick={() => setCreandoSubcategoria(true)}
-                      className={`px-3 rounded-lg border font-bold transition-all ${idCategoria === "" ? "bg-gray-900 border-gray-800 text-gray-600 cursor-not-allowed" : "bg-gray-800 hover:bg-purple-600 border-gray-700 text-gray-300 hover:text-white"}`}
+                      className={`px-3 rounded-lg border font-bold transition-all ${idCategoria === "" ? "bg-gray-900 border-gray-800 text-gray-600 cursor-not-allowed" : "bg-gray-800 hover:bg-blue-600 border-gray-700 text-gray-300 hover:text-white"}`}
                     >
                       +
                     </button>
@@ -548,7 +541,7 @@ export default function GestorInventario() {
                       onChange={(e) =>
                         setNombreNuevaSubcategoria(e.target.value)
                       }
-                      className="flex-1 bg-gray-800 border border-purple-500 rounded-lg px-3 py-2 text-white outline-none text-sm"
+                      className="flex-1 bg-gray-800 border border-blue-500 rounded-lg px-3 py-2 text-white outline-none text-sm"
                       placeholder="Nombre Subcategoría"
                     />
                     <button
@@ -573,7 +566,7 @@ export default function GestorInventario() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">
-                  Costo ($)
+                  Costo de compra ($)
                 </label>
                 <input
                   required
@@ -587,7 +580,7 @@ export default function GestorInventario() {
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">
-                  Venta ($)
+                  costo de Venta ($)
                 </label>
                 <input
                   required
@@ -596,14 +589,14 @@ export default function GestorInventario() {
                   max="5000000"
                   value={precio}
                   onChange={(e) => setPrecio(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500"
+                  className={`w-full bg-gray-800 border rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 ${Number(precio) <= Number(costo) && precio !== "" ? "border-red-500 focus:border-red-500" : "border-gray-700"}`}
                 />
               </div>
             </div>
 
             <button
               disabled={estaCargando}
-              className={`w-full text-white font-bold py-3 rounded-lg mt-4 shadow-lg transition-colors ${modoEdicion ? "bg-purple-600 hover:bg-purple-500" : "bg-blue-600 hover:bg-blue-500"}`}
+              className={`w-full text-white font-bold py-3 rounded-lg mt-4 shadow-lg transition-colors ${modoEdicion ? "bg-blue-600 hover:bg-blue-500" : "bg-blue-600 hover:bg-blue-500"}`}
             >
               {estaCargando
                 ? "Guardando..."
@@ -617,7 +610,6 @@ export default function GestorInventario() {
         {/* --- CATÁLOGO Y FILTROS --- */}
         <div className="lg:col-span-2 flex flex-col h-full">
           <div className="bg-gray-900/50 p-5 rounded-2xl border border-gray-800 mb-6 flex flex-col gap-4 shadow-lg">
-            {/* 🚀 NUEVO: BARRA DE BÚSQUEDA */}
             <div className="w-full relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                 🔍
@@ -626,13 +618,12 @@ export default function GestorInventario() {
                 type="text"
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar producto por nombre..."
+                placeholder="             Buscar producto por nombre..."
                 className="w-full bg-gray-950 border border-gray-700 rounded-xl pl-12 pr-4 py-3 text-white outline-none focus:border-blue-500 text-sm transition-colors"
               />
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              {/* Filtro de Categoría */}
               <div className="w-full sm:w-1/2">
                 <label className="block text-[10px] text-gray-400 uppercase tracking-widest mb-2 font-bold">
                   Filtro de Categoría
@@ -641,23 +632,22 @@ export default function GestorInventario() {
                   value={filtroCategoria}
                   onChange={(e) => {
                     setFiltroCategoria(e.target.value);
-                    setFiltroSubcategoria(""); // Resetea subcategoría al cambiar categoría
+                    setFiltroSubcategoria("");
                   }}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500 text-sm transition-colors"
                 >
-                  <option value="">🌟 Últimos Agregados (Vista General)</option>
+                  <option value="">Últimos Agregados</option>
                   {categorias.map((cat) => (
                     <option key={cat.id_categoria} value={cat.id_categoria}>
-                      📁 {cat.nombre}
+                      {cat.nombre}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Filtro de Subcategoría CON BLOQUEO */}
               <div className="w-full sm:w-1/2">
                 <label
-                  className={`block text-[10px] uppercase tracking-widest mb-2 font-bold transition-colors ${filtroCategoria === "" ? "text-gray-600" : "text-purple-400"}`}
+                  className={`block text-[10px] uppercase tracking-widest mb-2 font-bold transition-colors ${filtroCategoria === "" ? "text-gray-600" : "text-gray-400"}`}
                 >
                   Filtro de Subcategoría
                 </label>
@@ -665,17 +655,17 @@ export default function GestorInventario() {
                   value={filtroSubcategoria}
                   onChange={(e) => setFiltroSubcategoria(e.target.value)}
                   disabled={filtroCategoria === ""}
-                  className={`w-full rounded-lg px-4 py-3 text-white outline-none text-sm transition-all ${filtroCategoria === "" ? "bg-gray-900 border border-gray-800 text-gray-500 cursor-not-allowed" : "bg-gray-800 border border-purple-500/50 focus:border-purple-500"}`}
+                  className={`w-full rounded-lg px-4 py-3 text-white outline-none text-sm transition-all ${filtroCategoria === "" ? "bg-gray-900 border border-gray-800 text-gray-500 cursor-not-allowed" : "bg-gray-800 border border-blue-500/50 focus:border-blue-500"}`}
                 >
                   <option value="">
-                    {filtroCategoria === "" ? "Bloqueado" : "🔎 Todas"}
+                    {filtroCategoria === "" ? "Bloqueado" : "Todas"}
                   </option>
                   {subcategoriasParaFiltro.map((sub) => (
                     <option
                       key={sub.id_subcategoria}
                       value={sub.id_subcategoria}
                     >
-                      ↳ {sub.nombre}
+                      {sub.nombre}
                     </option>
                   ))}
                 </select>
@@ -698,11 +688,6 @@ export default function GestorInventario() {
                   className="bg-gray-800/80 rounded-2xl border border-gray-700 flex flex-col hover:border-gray-500 transition-all group overflow-hidden shadow-md hover:shadow-xl"
                 >
                   <div className="h-40 w-full bg-gray-900 relative flex items-center justify-center overflow-hidden border-b border-gray-700">
-                    <div
-                      className={`absolute top-2 right-2 backdrop-blur-md px-2 py-1 rounded-md text-[10px] font-bold z-10 border ${producto.estado === "Inactivo" ? "bg-red-900/80 text-red-100 border-red-500" : "bg-black/60 text-white border-gray-600"}`}
-                    >
-                      {producto.estado || "Activo"}
-                    </div>
                     {producto.imagen_url ? (
                       <img
                         src={`${API_URL}${producto.imagen_url}`}
@@ -749,7 +734,9 @@ export default function GestorInventario() {
                         <p className="text-[9px] text-gray-500 uppercase">
                           Venta
                         </p>
-                        <p className="font-black text-sm text-blue-400">
+                        <p
+                          className={`font-black text-sm ${Number(producto.precio_venta) <= Number(producto.costo_compra) ? "text-red-400" : "text-blue-400"}`}
+                        >
                           ${Number(producto.precio_venta).toLocaleString()}
                         </p>
                       </div>
@@ -757,7 +744,7 @@ export default function GestorInventario() {
                     <div className="flex justify-end gap-2 border-t border-gray-700 pt-3">
                       <button
                         onClick={() => iniciarEdicion(producto)}
-                        className="bg-gray-900 hover:bg-purple-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-gray-700"
+                        className="bg-gray-900 hover:bg-blue-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-gray-700"
                       >
                         ✏️
                       </button>

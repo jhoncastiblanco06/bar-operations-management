@@ -232,7 +232,7 @@ export default function GestorSedes() {
             <h2
               className={`text-xl font-semibold ${modoEdicion ? "text-purple-400" : "text-blue-400"}`}
             >
-              {modoEdicion ? "✏️ Editar Sede" : "🏢 Nueva Sede"}
+              {modoEdicion ? "✏️ Editar Sede" : " Nueva Sede"}
             </h2>
             {modoEdicion && (
               <button
@@ -311,7 +311,7 @@ export default function GestorSedes() {
                 Ubicación
               </p>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
+                <label className="block text-xs mt-2 text-gray-400 mb-1">
                   Ciudad
                 </label>
                 <input
@@ -329,7 +329,7 @@ export default function GestorSedes() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs mt-3 text-gray-400 mb-1">
                     Localidad
                   </label>
                   <input
@@ -346,7 +346,7 @@ export default function GestorSedes() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs mt-3 text-gray-400 mb-1">
                     Barrio
                   </label>
                   <input
@@ -362,39 +362,6 @@ export default function GestorSedes() {
                     </p>
                   )}
                 </div>
-              </div>
-            </div>
-
-            {/* ESTADO OPERATIVO */}
-            <div className="bg-gray-950 p-3 rounded-xl border border-gray-800">
-              <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">
-                Estado Operativo
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="estado"
-                    value="Activa"
-                    checked={estadoSede === "Activa"}
-                    onChange={(e) => setEstadoSede(e.target.value)}
-                    className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-700 focus:ring-blue-600"
-                  />
-                  <span className="text-sm text-gray-300">🟢 Activa</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="estado"
-                    value="Inactiva"
-                    checked={
-                      estadoSede === "Inactiva" || estadoSede === "Inactivo"
-                    }
-                    onChange={(e) => setEstadoSede("Inactiva")}
-                    className="w-4 h-4 text-red-600 bg-gray-800 border-gray-700 focus:ring-red-600"
-                  />
-                  <span className="text-sm text-gray-300">🔴 Inactiva</span>
-                </label>
               </div>
             </div>
 
@@ -431,11 +398,6 @@ export default function GestorSedes() {
                       <h3 className="text-lg font-bold text-white truncate">
                         {sede.nombre}
                       </h3>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${sede.estado === "Inactiva" || sede.estado === "Inactivo" ? "bg-red-900/50 text-red-400 border border-red-500/30" : "bg-green-900/50 text-green-400 border border-green-500/30"}`}
-                      >
-                        {sede.estado || "Activa"}
-                      </span>
                     </div>
 
                     <div className="mt-2 space-y-1">
@@ -459,13 +421,13 @@ export default function GestorSedes() {
                       onClick={() => iniciarEdicion(sede)}
                       className="bg-gray-900 hover:bg-purple-600 text-gray-300 hover:text-white px-4 py-2 rounded-lg text-sm transition-colors border border-gray-700 hover:border-purple-500 flex items-center gap-1"
                     >
-                      ✏️ Editar
+                      ✏️
                     </button>
                     <button
                       onClick={() => setSedeAEliminar(sede)}
                       className="bg-gray-900 hover:bg-red-600 text-gray-300 hover:text-white px-4 py-2 rounded-lg text-sm transition-colors border border-gray-700 hover:border-red-500 flex items-center gap-1"
                     >
-                      🗑️ Eliminar
+                      🗑️
                     </button>
                   </div>
                 </div>

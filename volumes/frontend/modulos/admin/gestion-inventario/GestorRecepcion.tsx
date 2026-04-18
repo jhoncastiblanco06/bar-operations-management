@@ -206,10 +206,10 @@ export default function GestorRecepcion() {
             <select
               value={idSedeSeleccionada}
               onChange={(e) => setIdSedeSeleccionada(e.target.value)}
-              className="w-full bg-gray-900 border border-blue-500/50 rounded-xl px-4 py-2.5 text-white outline-none focus:border-blue-500 shadow-lg transition-all cursor-pointer font-medium text-sm"
+              className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white outline-none focus:border-blue-500 shadow-lg transition-all cursor-pointer font-medium text-sm"
             >
               <option value="" disabled>
-                -- Elige una sede --
+                Seleccionar
               </option>
               {sedes.map((s) => (
                 <option key={s.id_sede} value={s.id_sede}>
@@ -228,7 +228,7 @@ export default function GestorRecepcion() {
               <select
                 value={idCategoriaFiltro}
                 onChange={(e) => setIdCategoriaFiltro(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white outline-none focus:border-purple-500 transition-all cursor-pointer font-medium text-sm"
+                className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white outline-none focus:border-blue-500 transition-all cursor-pointer font-medium text-sm"
               >
                 <option value="">Todas las categorías</option>
                 {categorias.map((c) => (
@@ -243,8 +243,8 @@ export default function GestorRecepcion() {
           {/* 🚀 3. Filtro Subcategoría (Siempre visible, pero se bloquea si no hay categoría elegida) */}
           {idSedeSeleccionada && (
             <div className="flex-1 sm:w-48 animate-in fade-in">
-              <label className="block text-[10px] text-purple-400 uppercase tracking-widest mb-1 font-bold">
-                ↳ Subcategoría
+              <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-bold">
+                Subcategoría
               </label>
               <select
                 disabled={
@@ -255,7 +255,7 @@ export default function GestorRecepcion() {
                 className={`w-full rounded-xl px-4 py-2.5 text-sm font-medium outline-none transition-all ${
                   !idCategoriaFiltro || subcategoriasParaFiltro.length === 0
                     ? "bg-gray-900/50 border border-gray-800 text-gray-600 cursor-not-allowed"
-                    : "bg-gray-900 border border-purple-500/50 text-white focus:border-purple-500 cursor-pointer"
+                    : "bg-gray-900 border border-blue-500/50 text-white focus:border-blue-500 cursor-pointer"
                 }`}
               >
                 <option value="">
@@ -322,7 +322,7 @@ export default function GestorRecepcion() {
               >
                 {/* Etiqueta de Stock */}
                 <div
-                  className={`absolute top-3 right-3 px-3 py-1 rounded-lg text-xs font-black z-10 shadow-lg border ${stockActual <= 5 ? "bg-red-500 text-white border-red-400" : "bg-green-500 text-white border-green-400"}`}
+                  className={`absolute top-3 right-3 px-3 py-1 rounded-lg text-xs font-black z-10 shadow-lg border ${stockActual <= 9 ? "bg-red-500 text-white border-red-400" : "bg-green-500 text-white border-green-400"}`}
                 >
                   Stock: {stockActual}
                 </div>

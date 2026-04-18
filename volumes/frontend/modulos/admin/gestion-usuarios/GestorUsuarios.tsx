@@ -376,7 +376,7 @@ export default function GestorUsuarios() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4">
               <div>
                 <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
                   Sede {!esAdmin && <span className="text-red-500">*</span>}
@@ -388,7 +388,7 @@ export default function GestorUsuarios() {
                   className={`w-full bg-gray-800 border rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500 ${errores.sede ? "border-red-500" : "border-gray-700"}`}
                 >
                   <option value="">
-                    {esAdmin ? "Global (Sin sede)" : "-- Seleccionar --"}
+                    {esAdmin ? "Global (Sin sede)" : "Seleccionar"}
                   </option>
                   {sedes.map((s) => (
                     <option key={s.id_sede} value={s.id_sede}>
@@ -402,56 +402,11 @@ export default function GestorUsuarios() {
                   </p>
                 )}
               </div>
-
-              {!esAdmin && (
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-widest">
-                    Turno
-                  </label>
-                  <select
-                    value={turno}
-                    onChange={(e) => setTurno(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500"
-                  >
-                    <option value="Mañana">Mañana</option>
-                    <option value="Tarde">Tarde</option>
-                    <option value="Noche">Noche</option>
-                  </select>
-                </div>
-              )}
-            </div>
-
-            <div className="bg-gray-950 p-3 rounded-lg border border-gray-800">
-              <label className="block text-[10px] text-gray-500 mb-2 uppercase tracking-widest">
-                Estado Operativo
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="Activo"
-                    checked={estado === "Activo"}
-                    onChange={(e) => setEstado(e.target.value)}
-                    className="text-blue-500"
-                  />{" "}
-                  Activo
-                </label>
-                <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="Inactivo"
-                    checked={estado === "Inactivo"}
-                    onChange={(e) => setEstado(e.target.value)}
-                    className="text-red-500"
-                  />{" "}
-                  Inactivo
-                </label>
-              </div>
             </div>
 
             <button
               disabled={estaCargando}
-              className={`w-full py-3 rounded-lg font-bold text-white transition-all ${modoEdicion ? "bg-purple-600 hover:bg-purple-500" : "bg-blue-600 hover:bg-blue-500"}`}
+              className={`w-full py-3 mt-4 rounded-lg font-bold text-white transition-all ${modoEdicion ? "bg-purple-600 hover:bg-purple-500" : "bg-blue-600 hover:bg-blue-500"}`}
             >
               {estaCargando
                 ? "Procesando..."
@@ -484,24 +439,10 @@ export default function GestorUsuarios() {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-white font-bold flex items-center gap-2">
-                    {u.nombre_completo}
-                    <span
-                      className={`text-[9px] px-2 py-0.5 rounded-full border ${u.estado === "Inactivo" ? "border-red-500/50 text-red-400" : "border-green-500/50 text-green-400"}`}
-                    >
-                      {u.estado || "Activo"}
-                    </span>
-                  </h3>
                   <div className="text-xs text-gray-500 space-y-0.5 mt-1">
                     <p>
                       📧 {u.email} <span className="mx-2">|</span> 📞{" "}
                       {u.telefono || "N/A"}
-                    </p>
-                    <p>
-                      🪪 {u.documento || "N/A"}{" "}
-                      {u.rol !== "Administrador" && (
-                        <span className="mx-2">| 🕒 {u.turno || "N/A"}</span>
-                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 mt-2">
