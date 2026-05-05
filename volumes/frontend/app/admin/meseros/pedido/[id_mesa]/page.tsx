@@ -9,8 +9,8 @@ interface ProductoEnStock {
   nombre: string;
   precio_venta: number | string;
   stock_actual: number;
-  id_categoria: number; // 🚀 Añadido para los filtros
-  id_subcategoria?: number; // 🚀 Añadido para los filtros
+  id_categoria: number;
+  id_subcategoria?: number;
 }
 
 interface ItemPedido {
@@ -26,7 +26,6 @@ interface Mesa {
   estado: string;
 }
 
-// 🚀 Interfaces para los filtros
 interface Categoria {
   id_categoria: number;
   nombre: string;
@@ -46,7 +45,6 @@ export default function TomaDePedidosMesero() {
   const [mesaActiva, setMesaActiva] = useState<Mesa | null>(null);
   const [productos, setProductos] = useState<ProductoEnStock[]>([]);
 
-  // 🚀 Estados para los filtros
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([]);
   const [idCategoriaFiltro, setIdCategoriaFiltro] = useState<string>("");
@@ -59,20 +57,45 @@ export default function TomaDePedidosMesero() {
   const [procesando, setProcesando] = useState(false);
   const [terminoBusqueda, setTerminoBusqueda] = useState("");
 
+  // 🚀 NUEVO: Guardaremos la sede operativa de esta sesión para el Administrador
+  const [idSedeOperativa, setIdSedeOperativa] = useState<number | null>(null);
+
   const cargarDatos = async () => {
     try {
       const usrStr = localStorage.getItem("usuario_bar");
       if (!usrStr) return router.push("/login");
 
       const usuario = JSON.parse(usrStr);
-      const idSede = usuario.id_sede;
+      let idSede = usuario.id_sede;
 
+      // 🚀 MAGIA MODO DIOS: Si el Administrador no tiene sede fija, averiguamos de qué sede es la mesa
+      if (
+        !idSede &&
+        (usuario.rol === "Administrador" || usuario.rol === "Admin")
+      ) {
+        const resMesasGlobal = await fetch(`${API_URL}/mesas`);
+        if (resMesasGlobal.ok) {
+          const todasMesas = await resMesasGlobal.json();
+          const mesaDelAdmin = todasMesas.find(
+            (m: any) => m.id_mesa === Number(id_mesa),
+          );
+          if (mesaDelAdmin) {
+            idSede = mesaDelAdmin.id_sede;
+          }
+        }
+      }
+
+      // Si después de todo sigue sin haber sede, lo rebotamos
       if (!idSede) {
-        alert("No tienes una sede asignada.");
+        alert(
+          "❌ Error: No se pudo determinar a qué sede pertenece esta mesa.",
+        );
         return router.push("/admin/meseros");
       }
 
-      // 1. Cargamos Catálogo, Categorías y Subcategorías al mismo tiempo
+      setIdSedeOperativa(idSede); // Guardamos la sede descubierta
+
+      // Cargamos Catálogo, Categorías y Subcategorías usando la sede descubierta
       const [resInventario, resMesas, resCategorias, resSubcats] =
         await Promise.all([
           fetch(`${API_URL}/inventario/pos/${idSede}`),
@@ -91,7 +114,7 @@ export default function TomaDePedidosMesero() {
         if (mesa) setMesaActiva(mesa);
       }
 
-      // 2. Cargamos el historial si la mesa ya está abierta
+      // Cargamos el historial si la mesa ya está abierta
       const resCuenta = await fetch(
         `${API_URL}/ordenes/mesa/${id_mesa}/activa`,
       );
@@ -113,7 +136,6 @@ export default function TomaDePedidosMesero() {
     cargarDatos();
   }, [id_mesa, router]);
 
-  // 🚀 Resetear subcategoría si cambian la categoría principal
   useEffect(() => {
     setIdSubcategoriaFiltro("");
   }, [idCategoriaFiltro]);
@@ -181,6 +203,9 @@ export default function TomaDePedidosMesero() {
   const enviarPedidoABarra = async () => {
     if (pedidoActual.length === 0)
       return alert("No has agregado productos nuevos.");
+    if (!idSedeOperativa)
+      return alert("Error de sesión: No se detectó la sede.");
+
     setProcesando(true);
 
     try {
@@ -191,7 +216,7 @@ export default function TomaDePedidosMesero() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id_sede: Number(usuario?.id_sede),
+          id_sede: Number(idSedeOperativa), // 🚀 AHORA USA LA SEDE DESCUBIERTA AUTOMÁTICAMENTE
           id_mesa: Number(id_mesa),
           id_mesero: Number(usuario?.id_usuario),
           productos: pedidoActual,
@@ -235,30 +260,26 @@ export default function TomaDePedidosMesero() {
       minimumFractionDigits: 0,
     }).format(valor);
 
-  // 🚀 LÓGICA DE FILTRADO MÚLTIPLE (Búsqueda + Categoría + Subcategoría)
   const subcategoriasParaFiltro = subcategorias.filter(
     (sub) => sub.id_categoria.toString() === idCategoriaFiltro,
   );
 
   const productosFiltrados = productos.filter((p) => {
-    // 1. Filtro de búsqueda por texto
     const coincideTexto = p.nombre
       .toLowerCase()
       .includes(terminoBusqueda.toLowerCase());
     if (!coincideTexto) return false;
 
-    // 2. Filtro de Categoría
     if (idCategoriaFiltro && p.id_categoria.toString() !== idCategoriaFiltro)
       return false;
 
-    // 3. Filtro de Subcategoría
     if (
       idSubcategoriaFiltro &&
       p.id_subcategoria?.toString() !== idSubcategoriaFiltro
     )
       return false;
 
-    return true; // Pasa todas las pruebas
+    return true;
   });
 
   const totalHistorico = cuentaExistente ? Number(cuentaExistente.total) : 0;
@@ -280,7 +301,6 @@ export default function TomaDePedidosMesero() {
     <div className="flex flex-col lg:flex-row h-[calc(100vh-2rem)] gap-4 pb-10 lg:pb-0">
       {/* LADO IZQUIERDO: EL CATÁLOGO */}
       <div className="flex-1 flex flex-col bg-gray-900/50 rounded-3xl border border-gray-800 overflow-hidden shadow-xl">
-        {/* 🚀 BARRA SUPERIOR DE BÚSQUEDA Y FILTROS */}
         <div className="p-4 border-b border-gray-800 bg-gray-900 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <button
             onClick={() => router.push("/admin/meseros")}
@@ -387,7 +407,7 @@ export default function TomaDePedidosMesero() {
         </div>
       </div>
 
-      {/* LADO DERECHO: LA LIBRETA DIVIDIDA (Historial + Nuevos) */}
+      {/* LADO DERECHO: LA LIBRETA DIVIDIDA */}
       <div className="w-full lg:w-96 bg-gray-900 border border-gray-800 rounded-3xl flex flex-col h-[50vh] lg:h-full shrink-0 shadow-2xl overflow-hidden">
         <div className="p-5 border-b border-gray-800 bg-gray-950 flex justify-between items-center">
           <div>
