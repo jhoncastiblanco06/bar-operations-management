@@ -11,6 +11,7 @@ interface ProductoEnStock {
   stock_actual: number;
   id_categoria: number;
   id_subcategoria?: number;
+  imagen_url: string | null; // 🚀 AÑADIDO
 }
 
 interface ItemPedido {
@@ -57,7 +58,6 @@ export default function TomaDePedidosMesero() {
   const [procesando, setProcesando] = useState(false);
   const [terminoBusqueda, setTerminoBusqueda] = useState("");
 
-  // 🚀 NUEVO: Guardaremos la sede operativa de esta sesión para el Administrador
   const [idSedeOperativa, setIdSedeOperativa] = useState<number | null>(null);
 
   const cargarDatos = async () => {
@@ -68,7 +68,6 @@ export default function TomaDePedidosMesero() {
       const usuario = JSON.parse(usrStr);
       let idSede = usuario.id_sede;
 
-      // 🚀 MAGIA MODO DIOS: Si el Administrador no tiene sede fija, averiguamos de qué sede es la mesa
       if (
         !idSede &&
         (usuario.rol === "Administrador" || usuario.rol === "Admin")
@@ -85,7 +84,6 @@ export default function TomaDePedidosMesero() {
         }
       }
 
-      // Si después de todo sigue sin haber sede, lo rebotamos
       if (!idSede) {
         alert(
           "❌ Error: No se pudo determinar a qué sede pertenece esta mesa.",
@@ -93,9 +91,8 @@ export default function TomaDePedidosMesero() {
         return router.push("/admin/meseros");
       }
 
-      setIdSedeOperativa(idSede); // Guardamos la sede descubierta
+      setIdSedeOperativa(idSede);
 
-      // Cargamos Catálogo, Categorías y Subcategorías usando la sede descubierta
       const [resInventario, resMesas, resCategorias, resSubcats] =
         await Promise.all([
           fetch(`${API_URL}/inventario/pos/${idSede}`),
@@ -114,7 +111,6 @@ export default function TomaDePedidosMesero() {
         if (mesa) setMesaActiva(mesa);
       }
 
-      // Cargamos el historial si la mesa ya está abierta
       const resCuenta = await fetch(
         `${API_URL}/ordenes/mesa/${id_mesa}/activa`,
       );
@@ -207,7 +203,6 @@ export default function TomaDePedidosMesero() {
       return alert("Error de sesión: No se detectó la sede.");
 
     setProcesando(true);
-
     try {
       const usrStr = localStorage.getItem("usuario_bar");
       const usuario = usrStr ? JSON.parse(usrStr) : null;
@@ -216,7 +211,7 @@ export default function TomaDePedidosMesero() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id_sede: Number(idSedeOperativa), // 🚀 AHORA USA LA SEDE DESCUBIERTA AUTOMÁTICAMENTE
+          id_sede: Number(idSedeOperativa),
           id_mesa: Number(id_mesa),
           id_mesero: Number(usuario?.id_usuario),
           productos: pedidoActual,
@@ -243,7 +238,6 @@ export default function TomaDePedidosMesero() {
         "Tienes productos sin enviar a la barra. Envíalos o bórralos antes de pedir la cuenta.",
       );
     }
-
     const confirmar = confirm(
       "¿Notificar a la caja para imprimir la cuenta de esta mesa?",
     );
@@ -269,16 +263,13 @@ export default function TomaDePedidosMesero() {
       .toLowerCase()
       .includes(terminoBusqueda.toLowerCase());
     if (!coincideTexto) return false;
-
     if (idCategoriaFiltro && p.id_categoria.toString() !== idCategoriaFiltro)
       return false;
-
     if (
       idSubcategoriaFiltro &&
       p.id_subcategoria?.toString() !== idSubcategoriaFiltro
     )
       return false;
-
     return true;
   });
 
@@ -299,8 +290,8 @@ export default function TomaDePedidosMesero() {
 
   return (
     <div className="flex flex-col lg:flex-row h-[calc(100vh-2rem)] gap-4 pb-10 lg:pb-0">
-      {/* LADO IZQUIERDO: EL CATÁLOGO */}
       <div className="flex-1 flex flex-col bg-gray-900/50 rounded-3xl border border-gray-800 overflow-hidden shadow-xl">
+        {/* BARRA DE FILTROS */}
         <div className="p-4 border-b border-gray-800 bg-gray-900 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <button
             onClick={() => router.push("/admin/meseros")}
@@ -337,11 +328,7 @@ export default function TomaDePedidosMesero() {
               }
               value={idSubcategoriaFiltro}
               onChange={(e) => setIdSubcategoriaFiltro(e.target.value)}
-              className={`w-full xl:w-40 rounded-xl px-3 py-2 text-sm outline-none transition-all ${
-                !idCategoriaFiltro || subcategoriasParaFiltro.length === 0
-                  ? "bg-gray-900 border border-gray-800 text-gray-600 cursor-not-allowed"
-                  : "bg-gray-950 border border-purple-500/50 text-white focus:border-purple-500 cursor-pointer"
-              }`}
+              className={`w-full xl:w-40 rounded-xl px-3 py-2 text-sm outline-none transition-all ${!idCategoriaFiltro || subcategoriasParaFiltro.length === 0 ? "bg-gray-900 border border-gray-800 text-gray-600 cursor-not-allowed" : "bg-gray-950 border border-purple-500/50 text-white focus:border-purple-500 cursor-pointer"}`}
             >
               <option value="">
                 {!idCategoriaFiltro
@@ -359,6 +346,7 @@ export default function TomaDePedidosMesero() {
           </div>
         </div>
 
+        {/* GRILLA DE PRODUCTOS (CORREGIDA CON IMÁGENES) */}
         <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-gray-800">
           {productosFiltrados.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full opacity-50">
@@ -374,31 +362,44 @@ export default function TomaDePedidosMesero() {
                     key={producto.id_producto}
                     disabled={sinStock}
                     onClick={() => agregarAlPedido(producto)}
-                    className={`p-4 rounded-2xl border flex flex-col items-center text-center transition-transform active:scale-95 relative overflow-hidden ${
+                    className={`rounded-2xl border flex flex-col text-center transition-transform active:scale-95 relative overflow-hidden h-48 group ${
                       sinStock
                         ? "border-red-900/50 bg-gray-950 opacity-50 cursor-not-allowed"
                         : "border-gray-800 bg-gray-900 hover:border-purple-500 shadow-lg hover:shadow-purple-500/10"
                     }`}
                   >
                     {sinStock && (
-                      <div className="absolute inset-0 bg-red-950/40 flex items-center justify-center backdrop-blur-[1px] z-10">
+                      <div className="absolute inset-0 bg-red-950/40 flex items-center justify-center backdrop-blur-[1px] z-20">
                         <span className="bg-red-600 text-white text-[10px] font-black uppercase px-2 py-1 rounded border border-red-500 transform -rotate-12">
                           Agotado
                         </span>
                       </div>
                     )}
-                    <span className="absolute top-2 left-2 bg-black/60 text-[10px] text-gray-300 px-2 py-0.5 rounded-full font-bold">
+                    <span className="absolute top-2 left-2 bg-black/80 backdrop-blur-sm text-[10px] text-gray-300 px-2 py-0.5 rounded-full font-bold z-10 border border-gray-700">
                       {producto.stock_actual} disp.
                     </span>
-                    <div className="w-12 h-12 bg-gray-800 rounded-full mb-3 flex items-center justify-center text-xl shadow-inner border border-gray-700">
-                      🍸
+
+                    {/* 🚀 ZONA DE IMAGEN (ARREGLADA) */}
+                    <div className="h-24 w-full bg-gray-950 flex items-center justify-center overflow-hidden border-b border-gray-800/50">
+                      {producto.imagen_url ? (
+                        <img
+                          src={`${API_URL}${producto.imagen_url}`}
+                          alt={producto.nombre}
+                          className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500"
+                        />
+                      ) : (
+                        <span className="text-3xl opacity-30">🍸</span>
+                      )}
                     </div>
-                    <span className="text-xs font-bold leading-tight mb-2 text-gray-200">
-                      {producto.nombre}
-                    </span>
-                    <span className="text-purple-400 font-black text-sm mt-auto">
-                      {formatearDinero(Number(producto.precio_venta))}
-                    </span>
+
+                    <div className="p-3 flex flex-col flex-1 justify-between w-full bg-gray-900/80">
+                      <span className="text-xs font-bold leading-tight text-gray-200 line-clamp-2">
+                        {producto.nombre}
+                      </span>
+                      <span className="text-purple-400 font-black text-sm mt-auto">
+                        {formatearDinero(Number(producto.precio_venta))}
+                      </span>
+                    </div>
                   </button>
                 );
               })}
@@ -478,7 +479,7 @@ export default function TomaDePedidosMesero() {
                     <div className="flex items-center gap-3 bg-gray-900 rounded-xl border border-gray-800 px-2 py-1">
                       <button
                         onClick={() => quitarDelPedido(item.id_producto)}
-                        className="text-red-400 w-6 h-6 font-bold hover:bg-red-500/20 rounded-lg transition-colors"
+                        className="text-red-400 w-6 h-6 font-bold hover:bg-red-500/20 rounded-lg"
                       >
                         -
                       </button>
@@ -493,7 +494,7 @@ export default function TomaDePedidosMesero() {
                             )!,
                           )
                         }
-                        className="text-green-400 w-6 h-6 font-bold hover:bg-green-500/20 rounded-lg transition-colors"
+                        className="text-green-400 w-6 h-6 font-bold hover:bg-green-500/20 rounded-lg"
                       >
                         +
                       </button>
@@ -527,7 +528,7 @@ export default function TomaDePedidosMesero() {
             <button
               disabled={pedidoActual.length === 0 || procesando}
               onClick={enviarPedidoABarra}
-              className="w-[60%] bg-gray-800 hover:bg-gray-700 disabled:bg-gray-900/50 disabled:text-gray-600 py-4 racking-widest rounded-xl font-black text-white text-xs sm:text-sm transition-all border border-gray-700 disabled:border-transparent active:scale-95 flex flex-col items-center justify-center gap-1"
+              className="w-[60%] bg-gray-800 hover:bg-gray-700 py-4 racking-widest rounded-xl font-black text-white text-xs sm:text-sm transition-all border border-gray-700 active:scale-95 flex flex-col items-center justify-center gap-1"
             >
               <span className="text-[17px] uppercase tracking-wider">
                 {procesando ? "..." : "Agregar al pedido"}
@@ -536,7 +537,7 @@ export default function TomaDePedidosMesero() {
             <button
               disabled={!cuentaExistente || pedidoActual.length > 0}
               onClick={solicitarCuenta}
-              className="w-[40%] bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-500 py-4 rounded-xl font-black text-white tracking-widest uppercase transition-all shadow-lg shadow-blue-500/20 disabled:shadow-none active:scale-95 flex items-center justify-center gap-2"
+              className="w-[40%] bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-black text-white tracking-widest uppercase transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
             >
               💳 Terminar pedido
             </button>
