@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client'; // 🚀 IMPORTANTE: Para leer los errores de Prisma
+import { Prisma } from '@prisma/client'; // 👈 ¡SI FALTA ESTA LÍNEA, HAY ERROR 500!🚀 IMPORTANTE: Para leer los errores de Prisma
 
 @Injectable()
 export class MesasService {

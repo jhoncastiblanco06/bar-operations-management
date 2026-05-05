@@ -10,7 +10,6 @@ export class MesasController {
     return this.mesasService.obtenerTodas();
   }
 
-  // Agrega esto junto a tus otros @Get
   @Get('sede/:id_sede')
   async obtenerPorSede(@Param('id_sede') id_sede: string) {
     return this.mesasService.obtenerPorSede(Number(id_sede));
@@ -18,21 +17,27 @@ export class MesasController {
 
   @Post()
   crear(@Body() datos: { id_sede: string | number; capacidad: number }) {
-    // 👇 AQUÍ ESTÁ LA MAGIA: Forzamos a que sean números antes de enviarlos al servicio
     return this.mesasService.crear({
       id_sede: Number(datos.id_sede),
       capacidad: Number(datos.capacidad),
     });
   }
 
-  @Delete('sede/:idSede/capacidad/:capacidad')
+  // Estandarizamos el Delete para que todo use 'id_sede'
+  @Delete('sede/:id_sede/capacidad/:capacidad')
   eliminarPorCapacidad(
-    @Param('idSede') idSede: string,
+    @Param('id_sede') id_sede: string,
     @Param('capacidad') capacidad: string,
   ) {
     return this.mesasService.eliminarUltimaPorCapacidad(
-      Number(idSede),
+      Number(id_sede),
       Number(capacidad),
     );
+  }
+
+  // Agregamos también el Delete por ID individual que faltaba
+  @Delete(':id')
+  eliminar(@Param('id') id: string) {
+    return this.mesasService.eliminar(Number(id));
   }
 }
