@@ -8,7 +8,7 @@ export class PrismaExcepcionesFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    // 🛡️ Código P2002: Prisma detectó una violación de @unique (Dato duplicado)
+    // 🛡️ P2002: Dato duplicado (Cédula, Email, etc.)
     if (exception.code === 'P2002') {
       const campo = exception.meta?.target 
         ? (exception.meta.target as string[]).join(', ') 
@@ -21,12 +21,21 @@ export class PrismaExcepcionesFilter implements ExceptionFilter {
       });
     }
 
-    // 🛡️ Código P2025: Prisma detectó que no se encontró el registro (Para los Delete/Update)
+    // 🛡️ P2025: No se encontró el registro
     if (exception.code === 'P2025') {
       return response.status(HttpStatus.NOT_FOUND).json({
         statusCode: HttpStatus.NOT_FOUND,
         message: 'El registro que intentas modificar o eliminar no existe.',
         error: 'No Encontrado',
+      });
+    }
+
+    // 🚀 NUEVO 🛡️ P2003: Violación de Llave Foránea (Historial asociado)
+    if (exception.code === 'P2003') {
+      return response.status(HttpStatus.BAD_REQUEST).json({
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: 'No se puede eliminar este registro porque tiene historial o datos asociados (ej. facturas, ventas o pedidos pasados).',
+        error: 'Protección de Historial',
       });
     }
 
